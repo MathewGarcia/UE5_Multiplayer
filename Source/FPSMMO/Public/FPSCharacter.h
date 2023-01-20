@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class APlayerInfoState;
 class AFPSPlayerController;
 class UpHUD;
 class AWeapon;
@@ -36,13 +37,14 @@ public:
 	void ResetFire();
 
 	//Player Info
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	float GetHealth();
-	UFUNCTION(BlueprintCallable)
+
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	float GetShield();
 
 	void UpdateHealth();
-	void UpdateShield();
+	void UpdateShield(float SP);
 
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void UseWeapon(AWeapon* WeaponToUse);
@@ -56,6 +58,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 		float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+
+	UPROPERTY()
+		UpHUD* HUDWidget;
 
 protected:
 	// Called when the game starts or when spawned
@@ -84,9 +89,9 @@ protected:
 
 	float FireRate = 1;
 
-	UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_Health,Category = "playerInfo")
+	UPROPERTY(EditAnywhere, ReplicatedUsing=OnRep_Health,Category = "playerInfo")
 		float HP;
-	UPROPERTY(EditDefaultsOnly, ReplicatedUsing= OnRep_Shield,Category = "playerInfo")
+	UPROPERTY(EditAnywhere, ReplicatedUsing= OnRep_Shield,Category = "playerInfo")
 		float Shield;
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, ReplicatedUsing= OnRep_CurrentWeapon, Category = "Weapon")
@@ -99,14 +104,24 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "pHUDClass")
 		TSubclassOf<UpHUD> pHUDClass;
 
-	UPROPERTY()
-	UpHUD* HUDWidget;
 
 	UFUNCTION()
 		void OnRep_CurrentWeapon();
 
-	UPROPERTY(ReplicatedUsing = OnRep_FPSController)
+	UPROPERTY()
 		AFPSPlayerController* FPSPC;
+
+	UFUNCTION(Server, Reliable)
+		void HandleFire();
+
+	UFUNCTION(Server, Reliable)
+		void SpawnProjectile();
+
+	AProjectile* Projectile;
+
+	void KilledBy(AController* EventInstigator);
+
+	//APlayerInfoState*instigatorPlayerState;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -121,7 +136,4 @@ public:
 		void OnRep_Health();
 	UFUNCTION()
 		void OnRep_Shield();
-
-	UFUNCTION()
-		void OnRep_FPSController();
 };

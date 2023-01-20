@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "FPSPlayerController.generated.h"
 
+class AFPSCharacter;
 class UpHUD;
 /**
  * 
@@ -24,9 +25,11 @@ public:
 
 		UpHUD* HUDWidget;
 
-		void UpdateHP();
+		void UpdateHP(float &Health);
 
-		void UpdateShield(float Shield);
+		void UpdateShield(float &Shield);
+
+		AFPSCharacter* player;
 
 protected:
 

@@ -20,17 +20,23 @@ public:
 		APlayerHUD();
 
 		UPROPERTY(EditDefaultsOnly ,Category = "pHUDClass")
-			TSubclassOf<UUserWidget> pHUDClass;
+			TSoftClassPtr<UUserWidget> pHUDClass;
 
-		virtual void BeginPlay() override;
+		UUserWidget* HUDWidget = nullptr;
 
-		virtual void DrawHUD() override;
+		void UpdateHealth();
 
-		UpHUD* HUDWidget = nullptr;
+		void UpdateShield();
+
+		UpHUD* UHUDWidget;
 private:
 
 	
+protected:
 
+	virtual void BeginPlay() override;
+
+	virtual void DrawHUD() override;
 
 	AFPSCharacter* player;
 

@@ -6,6 +6,8 @@
 #include "Blueprint/UserWidget.h"
 #include "pHUD.generated.h"
 
+class APlayerInfoState;
+class AFPSCharacter;
 /**
  * 
  */
@@ -18,14 +20,29 @@ class FPSMMO_API UpHUD : public UUserWidget
 		UpHUD(const FObjectInitializer& ObjectInitializer);
 
 public:
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "PlayerInfo")
+	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_UpdateHealth,BlueprintReadWrite, Category = "PlayerInfo")
 		float HP;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category = "PlayerInfo")
+	UPROPERTY(EditAnywhere, ReplicatedUsing= OnRep_UpdateShield,BlueprintReadWrite,Category = "PlayerInfo")
 		float SP;
 
-	UFUNCTION(BlueprintCallable, Category = "Player UI")
-	void UpdateShield(float Shield);
-	UFUNCTION(BlueprintCallable, Category = "Player UI")
-		void UpdateHealth(float Health);
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
+	void OnRep_UpdateShield(float Shield);
+
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
+		void OnRep_UpdateHealth(float Health);
+
+	UPROPERTY()
+		AFPSCharacter* player;
+
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfoState")
+	APlayerInfoState* GetPlayerInfoState();
+private:
+	APlayerState* PS;
+	
+
+protected:
+	virtual void NativeConstruct() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 };

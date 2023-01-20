@@ -4,7 +4,6 @@
 #include "FPSPlayerController.h"
 #include "FPSCharacter.h"
 #include "pHUD.h"
-#include "GameFramework/PlayerState.h"
 
 AFPSPlayerController::AFPSPlayerController()
 {
@@ -13,31 +12,24 @@ AFPSPlayerController::AFPSPlayerController()
 }
 
 
-void AFPSPlayerController::UpdateHP()
+void AFPSPlayerController::UpdateHP(float &Health)
 {
-	AFPSCharacter* player = Cast<AFPSCharacter>(GetPawn());
 
 	if (HUDWidget) {
 		if (player)
 		{
 			
-			HUDWidget->UpdateHealth(player->GetHealth());
+			HUDWidget->OnRep_UpdateHealth(Health);
 
 		}
 	}
 }
 
-void AFPSPlayerController::UpdateShield(float Shield)
+void AFPSPlayerController::UpdateShield(float &Shield)
 {
-
 	if (HUDWidget) {
-	/*APlayerState*PS = HUDWidget->GetOwningPlayerPawn()->GetPlayerState();
-
-		if(PS)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Player State = %s"), *PS->GetName());
-		}*/
-			HUDWidget->UpdateShield(Shield);
+	
+		HUDWidget->OnRep_UpdateShield(Shield);
 	}
 }
 
@@ -45,20 +37,11 @@ void AFPSPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-
-	//UE_LOG(LogTemp, Warning, TEXT("Owner: %s "), *GetOwner()->GetName());
 	if (IsLocalPlayerController()) {
 		HUDWidget = CreateWidget<UpHUD>(this, pHUDClass.LoadSynchronous());
-			AFPSCharacter* player = Cast<AFPSCharacter>(GetPawn());
+			 player = Cast<AFPSCharacter>(HUDWidget->GetOwningPlayerPawn());
 			if (HUDWidget) {
 				HUDWidget->AddToViewport();
-				if(player)
-				{
-					
-					HUDWidget->SP = player->GetShield();
-					HUDWidget->HP = player->GetHealth();
-
-				}
 			}
 	}
 }

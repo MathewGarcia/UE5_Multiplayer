@@ -16,6 +16,7 @@
 #include "PlayerHUD.h"
 #include "pHUD.h"
 #include "FPSPlayerController.h"
+#include "PlayerInfoState.h"
 
 // Sets default values
 AFPSCharacter::AFPSCharacter()
@@ -78,24 +79,39 @@ void AFPSCharacter::BeginPlay()
 		}
 	}
 
+
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (PC)
+	{
+		FPSPC = Cast<AFPSPlayerController>(PC);
+	}
+
+	if (FPSPC->IsLocalPlayerController())
+	{
+		HUDWidget = FPSPC->HUDWidget;
+	}
+
 	SetShield(100);
 	SetHealth(100);
-
-	OnRep_FPSController();
 
 }
 
 void AFPSCharacter::SetHealth(float hp)
 {
-	
+	if(GetLocalRole() == ROLE_Authority)
+	{
 		HP = hp;
-	
+		OnRep_Health();
+	}
+
 }
 
 void AFPSCharacter::SetShield(float shield)
 {
+	if (GetLocalRole() == ROLE_Authority) {
 		Shield = shield;
-		
+		OnRep_Shield();
+	}
 	
 }
 
@@ -106,18 +122,7 @@ void AFPSCharacter::OnRep_Health()
 
 void AFPSCharacter::OnRep_Shield()
 {
-	UpdateShield();
-}
-
-void AFPSCharacter::OnRep_FPSController()
-{
-
-		APlayerController* PC = GetWorld()->GetFirstPlayerController();
-		if (PC)
-			FPSPC = Cast<AFPSPlayerController>(PC);
-		if (FPSPC)
-			UE_LOG(LogTemp, Warning, TEXT("FPSPC Good"));
-	
+	UpdateShield(Shield);
 }
 
 void AFPSCharacter::OnRep_CurrentWeapon()
@@ -126,6 +131,52 @@ void AFPSCharacter::OnRep_CurrentWeapon()
 	CurrentWeapon->AttachToComponent(playerMeshTest, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
 	CurrentWeapon->SetOwner(this);
 	CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
+}
+
+void AFPSCharacter::HandleFire_Implementation()
+{
+
+	FRotator SpawnRotation = GetControlRotation();
+
+		if (CurrentWeapon) {
+			// Set the projectile's initial velocity
+			if (Projectile)
+			{
+				FVector LaunchDirection = SpawnRotation.Vector();
+				LaunchDirection *= CurrentWeapon->WeaponDistance;
+				Projectile->FireInDirection(LaunchDirection);
+
+
+				GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("FIRING"));
+
+			}
+
+		}
+}
+
+void AFPSCharacter::SpawnProjectile_Implementation()
+{
+
+	// Spawn a projectile at the camera location
+	FVector SpawnLocation = GetActorLocation() + (GetControlRotation().Vector() * 100.0f) + (GetActorUpVector() * 50.0f);
+	FRotator SpawnRotation = GetControlRotation();
+	FActorSpawnParameters spawnParameters;
+
+	spawnParameters.Instigator = GetInstigator();
+	spawnParameters.Owner = this;
+
+	Projectile = GetWorld()->SpawnActor<AProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, spawnParameters);
+}
+
+void AFPSCharacter::KilledBy(AController* EventInstigator)
+{
+	if (EventInstigator) {
+		APlayerInfoState* instigatorPlayerState = Cast<APlayerInfoState>(EventInstigator->PlayerState);
+		if (instigatorPlayerState)
+		{
+			instigatorPlayerState->UpdateEXP(10);
+		}
+	}
 }
 
 // Called every frame
@@ -189,44 +240,16 @@ void AFPSCharacter::RotateCameraPitch(float Value)
 
 void AFPSCharacter::StartFire()
 {
-
-
-	if (bCanFire)
-	{
+	if (bCanFire) {
 		bCanFire = false;
-
-		// Spawn a projectile at the camera location
-		FVector SpawnLocation = FPSCameraComponent->GetComponentLocation();
-		FRotator SpawnRotation = FPSCameraComponent->GetComponentRotation();
-		FActorSpawnParameters spawnParameters;
-
-		spawnParameters.Instigator = GetInstigator();
-		spawnParameters.Owner = this;
-
-		AProjectile* Projectile = GetWorld()->SpawnActor<AProjectile>(ProjectileClass, SpawnLocation, SpawnRotation,spawnParameters);
-
-
-		if (CurrentWeapon) {
-			// Set the projectile's initial velocity
-			if (Projectile)
-			{
-				FVector LaunchDirection = SpawnRotation.Vector();
-				LaunchDirection *= CurrentWeapon->WeaponDistance;
-				Projectile->FireInDirection(LaunchDirection);
-
-			
-				GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("FIRING"));
-
-			}
-
-			// Set a timer to allow firing again
-			GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, FireRate, false);
-		}
+		// Set a timer to allow firing again
+		GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, FireRate, false);
+		SpawnProjectile();
 	}
 }
 
 void AFPSCharacter::StopFire()
-	{
+{
 	// Clear the fire timer
 	GetWorld()->GetTimerManager().ClearTimer(FireTimerHandle);
 
@@ -250,37 +273,49 @@ float AFPSCharacter::GetShield()
 }
 void AFPSCharacter::UpdateHealth()
 {
-	
-	if (GEngine) {
+	if (IsLocallyControlled()) {
+		if (GEngine) {
 			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("Health: " + FString::Printf(TEXT("%f"), GetHealth())));
-		
-	}
 
-	if (FPSPC)
-	{
-		FPSPC->UpdateHP();
+		}
+
+		if (FPSPC)
+		{
+			float NHP = GetHealth();
+			FPSPC->UpdateHP(NHP);
+		}
+
+		if(GetHealth() <= 0)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("You are Dead."));
+		
+		}
 	}
 	
 }
 
-void AFPSCharacter::UpdateShield()
+void AFPSCharacter::UpdateShield(float SP)
 {
+	if (IsLocallyControlled()) {
+
+		Shield = SP;
 
 		if (GEngine) {
 
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("Shield: " + FString::Printf(TEXT("%f"), GetShield())));
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("You have  " + FString::Printf(TEXT("%f shield remaining"), GetShield())));
 
 		}
-
-	
 
 
 		if (FPSPC)
 		{
-			FPSPC->UpdateShield(GetShield());
+			float NSP = GetShield();
+			FPSPC->UpdateShield(NSP);
 		}
+	}
+	if (GetLocalRole() == ROLE_Authority) {
 	
-
+	}
 }
 
 void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
@@ -305,7 +340,6 @@ void AFPSCharacter::SetClientSideWeapon(AWeapon* Weapon)
 {
 	if (Weapon)
 	{
-		//Weapon->AttachToComponent(FPSCameraComponent, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "WeaponSocket");
 		//set the weapon mesh
 		WeaponMesh = Weapon->WeaponMesh;
 	}
@@ -329,31 +363,25 @@ APlayerHUD* AFPSCharacter::GetPlayerHUD()
 }
 float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	if (GetShield() >= 0) {
-		float damageApplied = GetShield() - DamageTaken;
-		SetShield(damageApplied);
-		APlayerState*PS = this->GetPlayerState();
-		if(PS)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("%s, is taking damage!"), *PS->GetName());
-			FPSPC = Cast<AFPSPlayerController>(this->GetWorld()->GetFirstPlayerController());
-			if(FPSPC)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("%s, is the player controller"), *FPSPC->GetName());
 
-				OnRep_Shield();
-			}
 
+		if (GetShield() > 0) {
+			float damageApplied = GetShield() - DamageTaken;
+			SetShield(damageApplied);
+			return damageApplied;
 		}
-		return damageApplied;
-	}
-	else
-	{
-		float damageApplied = GetHealth() - DamageTaken;
-		SetHealth(damageApplied);
-		OnRep_Health();
-		return damageApplied;
-	}
+		else
+		{
+			float damageApplied = GetHealth() - DamageTaken;
+			SetHealth(damageApplied);
+			if(GetHealth() <= 0)
+			{
+				KilledBy(EventInstigator);
+			}
+			return damageApplied;
+		}
+
+	
 }
 
 void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -364,5 +392,4 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, HP);
 	DOREPLIFETIME(AFPSCharacter, Shield);
 	DOREPLIFETIME(AFPSCharacter, CurrentWeapon);
-	DOREPLIFETIME(AFPSCharacter, FPSPC);
 }
