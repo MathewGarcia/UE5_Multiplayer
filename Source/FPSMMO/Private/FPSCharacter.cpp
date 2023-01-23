@@ -53,6 +53,29 @@ AFPSCharacter::AFPSCharacter()
 		playerMeshTest->SetOnlyOwnerSee(false);
 		// Disable crouching
 		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = false;
+
+		MaxShield = 100;
+
+}
+
+void AFPSCharacter::SetCombatStatus(AController* EventInstigator)
+{
+	if (EventInstigator) {
+		APlayerInfoState* instigatorPlayerState = Cast<APlayerInfoState>(EventInstigator->PlayerState);
+		if (instigatorPlayerState)
+		{
+			if (instigatorPlayerState->GetInCombat() != true)
+				instigatorPlayerState->OnRep_InCombat();
+		}
+	}
+
+	APlayerInfoState* PS = Cast<APlayerInfoState>(GetPlayerState());
+
+	if (PS)
+	{
+		if(PS->GetInCombat() != true)
+		PS->OnRep_InCombat();
+	}
 }
 
 // Called when the game starts or when spawned
@@ -109,7 +132,7 @@ void AFPSCharacter::SetHealth(float hp)
 void AFPSCharacter::SetShield(float shield)
 {
 	if (GetLocalRole() == ROLE_Authority) {
-		Shield = shield;
+		Shield = FMath::Clamp(shield, 0.0f, MaxShield);
 		OnRep_Shield();
 	}
 	
@@ -240,6 +263,7 @@ void AFPSCharacter::RotateCameraPitch(float Value)
 
 void AFPSCharacter::StartFire()
 {
+	//TODO:Change firerate to weapon->FireRate
 	if (bCanFire) {
 		bCanFire = false;
 		// Set a timer to allow firing again
@@ -363,11 +387,10 @@ APlayerHUD* AFPSCharacter::GetPlayerHUD()
 }
 float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-
-
 		if (GetShield() > 0) {
 			float damageApplied = GetShield() - DamageTaken;
 			SetShield(damageApplied);
+			SetCombatStatus(EventInstigator);
 			return damageApplied;
 		}
 		else

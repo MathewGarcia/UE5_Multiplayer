@@ -36,6 +36,8 @@ public:
 	void StopFire();
 	void ResetFire();
 
+	float MaxShield;
+
 	//Player Info
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	float GetHealth();
@@ -61,6 +63,8 @@ public:
 
 	UPROPERTY()
 		UpHUD* HUDWidget;
+
+	void SetCombatStatus(AController*EventInstigator);
 
 protected:
 	// Called when the game starts or when spawned

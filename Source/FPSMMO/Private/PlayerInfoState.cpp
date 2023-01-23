@@ -3,10 +3,13 @@
 
 #include "PlayerInfoState.h"
 
+#include "FPSCharacter.h"
 #include "Net/UnrealNetwork.h"
 
 APlayerInfoState::APlayerInfoState()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	CurrentLevel = 1;
 }
 
@@ -21,6 +24,8 @@ void APlayerInfoState::LevelUp()
 	{
 		if (CurrentEXP >= EXPNeeded) {
 			CurrentLevel++;
+			SetEXP(0);
+			UpgradeShield();
 		}
 	}
 }
@@ -44,21 +49,110 @@ void APlayerInfoState::SetEXP(float EXP)
 	CurrentEXP = EXP;
 }
 
+void APlayerInfoState::UpgradeShield()
+{
+	 player = Cast<AFPSCharacter>(GetPawn());
+	if (player) {
+		switch (CurrentLevel)
+		{
+		case 1:player->SetShield(100);
+			player->MaxShield = 100;
+			return;
+		case 2:player->SetShield(200);
+			player->MaxShield = 200;
+			return;
+		case 3: player->SetShield(300);
+			player->MaxShield = 300;
+			return;
+		case 4: player->SetShield(400);
+			player->MaxShield = 400;
+			return;
+		case 5: player->SetShield(500);
+			player->MaxShield = 500;
+			return;
+		default: return;
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player failed"));
+	}
+}
+
+bool APlayerInfoState::GetInCombat()
+{
+	return bInCombat;
+}
+
+void APlayerInfoState::SetInCombat(bool CombatCond)
+{
+	if(GetLocalRole() == ROLE_Authority)
+	bInCombat = CombatCond;
+	
+}
+
+void APlayerInfoState::InCombatFalse()
+{
+	OnRep_InCombat();
+	RechargeShield();
+}
+
+void APlayerInfoState::RechargeShield()
+{
+
+	 player = Cast<AFPSCharacter>(GetPawn());
+	//UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
+	if (player) {
+			player->SetShield(player->GetShield() + 10);
+	}
+	GetWorld()->GetTimerManager().ClearTimer(RechargeHandle);
+
+}
+
 void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(APlayerInfoState, CurrentLevel);
+	DOREPLIFETIME(APlayerInfoState, bInCombat);
 }
 
 void APlayerInfoState::BeginPlay()
 {
 	Super::BeginPlay();
 
+	player = Cast<AFPSCharacter>(GetPawn());
 	UE_LOG(LogTemp, Warning, TEXT("Player Level is : %d"),CurrentLevel);
+}
+
+void APlayerInfoState::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (player) {
+		if (!bInCombat && player->GetShield() != player->MaxShield)
+		{
+			RechargeShield();
+		}
+	}
 }
 
 void APlayerInfoState::OnRep_Level()
 {
 	LevelUp();
+}
+
+void APlayerInfoState::OnRep_InCombat()
+{
+	if(!bInCombat)
+	{
+		SetInCombat(true);
+	}
+	else
+	{
+		SetInCombat(false);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
+	GetWorld()->GetTimerManager().SetTimer(RechargeHandle, this, &APlayerInfoState::InCombatFalse, RechargeRate, false);
+
 }
