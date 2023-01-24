@@ -4,8 +4,8 @@
 #include "pHUD.h"
 #include "FPSCharacter.h"
 #include "PlayerInfoState.h"
-#include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
+
 
 UpHUD::UpHUD(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -29,6 +29,11 @@ APlayerInfoState* UpHUD::GetPlayerInfoState()
 		return Cast<APlayerInfoState>(player->GetPlayerState());
 	}
 	return nullptr;
+}
+
+FText UpHUD::UpdateText()
+{
+	return text;
 }
 
 void UpHUD::NativeConstruct()

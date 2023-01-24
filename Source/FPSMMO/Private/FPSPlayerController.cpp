@@ -33,6 +33,15 @@ void AFPSPlayerController::UpdateShield(float &Shield)
 	}
 }
 
+void AFPSPlayerController::UpdateText(FText text)
+{
+	if(HUDWidget)
+	{
+		HUDWidget->text = text;
+		HUDWidget->UpdateText();
+	}
+}
+
 void AFPSPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

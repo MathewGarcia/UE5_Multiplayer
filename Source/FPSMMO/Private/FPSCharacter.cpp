@@ -17,6 +17,10 @@
 #include "pHUD.h"
 #include "FPSPlayerController.h"
 #include "PlayerInfoState.h"
+#include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
+#include "InputConfigData.h"
+
 
 // Sets default values
 AFPSCharacter::AFPSCharacter()
@@ -58,14 +62,75 @@ AFPSCharacter::AFPSCharacter()
 
 }
 
+void AFPSCharacter::Move(const FInputActionValue& Value)
+{
+	if (Controller != nullptr)
+	{
+		const FVector2D MoveValue = Value.Get<FVector2D>();
+		const FRotator MovementRotation(0, Controller->GetControlRotation().Yaw, 0);
+
+		// Forward/Backward direction
+		if (MoveValue.Y != 0.f)
+		{
+			// Get forward vector
+			const FVector Direction = MovementRotation.RotateVector(FVector::ForwardVector);
+
+			AddMovementInput(Direction, MoveValue.Y);
+		}
+
+		// Right/Left direction
+		if (MoveValue.X != 0.f)
+		{
+			// Get right vector
+			const FVector Direction = MovementRotation.RotateVector(FVector::RightVector);
+
+			AddMovementInput(Direction, MoveValue.X);
+		}
+	}
+}
+
+void AFPSCharacter::Look(const FInputActionValue& Value)
+{
+	if (Controller != nullptr)
+	{
+		const FVector2D LookValue = Value.Get<FVector2D>();
+
+		if (LookValue.X != 0.f)
+		{
+			AddControllerYawInput(LookValue.X);
+		}
+
+		if (LookValue.Y != 0.f)
+		{
+			AddControllerPitchInput(LookValue.Y);
+		}
+	}
+}
+
 void AFPSCharacter::SetCombatStatus(AController* EventInstigator)
 {
 	if (EventInstigator) {
 		APlayerInfoState* instigatorPlayerState = Cast<APlayerInfoState>(EventInstigator->PlayerState);
+
 		if (instigatorPlayerState)
 		{
+			instigatorPlayerState->player = Cast<AFPSCharacter>(instigatorPlayerState->GetPawn());
+			if (instigatorPlayerState->GetInCombat() == true) {
+				//clear previous timer
+				if (GetWorld()->GetTimerManager().TimerExists(instigatorPlayerState->RechargeHandle)) {
+					GetWorld()->GetTimerManager().ClearTimer(instigatorPlayerState->RechargeHandle);
+				}
+				
+					//set new timer
+					GetWorld()->GetTimerManager().SetTimer(instigatorPlayerState->RechargeHandle, instigatorPlayerState, &APlayerInfoState::InCombatFalse, instigatorPlayerState->RechargeRate, false);
+
+
+			}
+
 			if (instigatorPlayerState->GetInCombat() != true)
 				instigatorPlayerState->OnRep_InCombat();
+
+			
 		}
 	}
 
@@ -73,8 +138,21 @@ void AFPSCharacter::SetCombatStatus(AController* EventInstigator)
 
 	if (PS)
 	{
+
+		if (PS->GetInCombat() == true)
+		{
+			if (GetWorld()->GetTimerManager().TimerExists(PS->RechargeHandle)) {
+				GetWorld()->GetTimerManager().ClearTimer(PS->RechargeHandle);
+			}
+
+				GetWorld()->GetTimerManager().SetTimer(PS->RechargeHandle, PS, &APlayerInfoState::InCombatFalse, PS->RechargeRate, false);
+			
+		}
+
 		if(PS->GetInCombat() != true)
 		PS->OnRep_InCombat();
+
+		
 	}
 }
 
@@ -95,6 +173,7 @@ void AFPSCharacter::BeginPlay()
 			{
 				// Create an instance of the weapon object
 				AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(BP->GeneratedClass);
+				Weapon->SetPickUp(true);
 				EquipWeapon(Weapon);
 				UseWeapon(Weapon);
 			}
@@ -202,10 +281,17 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 	}
 }
 
+void AFPSCharacter::Interact()
+{
+	UE_LOG(LogTemp, Warning, TEXT("INTERACTING"));
+}
+
 // Called every frame
 void AFPSCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	
 
 }
 
@@ -214,7 +300,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	check(PlayerInputComponent);
+	/*check(PlayerInputComponent);
 
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
@@ -224,52 +310,38 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PlayerInputComponent->BindAxis("RotateCameraPitch", this, &AFPSCharacter::RotateCameraPitch);
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::StartFire);
 	PlayerInputComponent->BindAction("Fire", IE_Released, this, &AFPSCharacter::StopFire);
-}
+	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFPSCharacter::Interact);*/
 
-void AFPSCharacter::MoveForward(float Value)
-{
-	if (Value != 0.0f)
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if(PC)
 	{
-		// Add movement in that direction
-		AddMovementInput(GetActorForwardVector(), Value);
+		 UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer());
+		if(Subsystem)
+		{
+			Subsystem->ClearAllMappings();
+			Subsystem->AddMappingContext(InputMapping, 0);
+		}
 	}
+
+	UEnhancedInputComponent* PEI = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	PEI->BindAction(InputActions->InputMove, ETriggerEvent::Triggered, this, &AFPSCharacter::Move);
+	PEI->BindAction(InputActions->InputLook, ETriggerEvent::Triggered, this, &AFPSCharacter::Look);
+	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
+
 }
 
-void AFPSCharacter::MoveRight(float Value)
+void AFPSCharacter::StartFire(const FInputActionValue& Val)
 {
-	if (Value != 0.0f)
-	{
-		// Add movement in that direction
-		AddMovementInput(GetActorRightVector(), Value);
-	}
-}
-
-// Handle camera rotation input
-void AFPSCharacter::RotateCameraYaw(float Value)
-{
-	if (Value != 0.0f)
-	{
-		AddControllerYawInput(Value);
-	}
-}
-
-void AFPSCharacter::RotateCameraPitch(float Value)
-{
-	if (Value != 0.0f)
-	{
-		AddControllerPitchInput(Value);
-	}
-}
-
-void AFPSCharacter::StartFire()
-{
-	//TODO:Change firerate to weapon->FireRate
 	if (bCanFire) {
-		bCanFire = false;
-		// Set a timer to allow firing again
-		GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, FireRate, false);
-		SpawnProjectile();
+		if (CurrentWeapon) {
+			bCanFire = false;
+			// Set a timer to allow firing again
+			GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, CurrentWeapon->FireRate, false);
+			SpawnProjectile();
+		}
 	}
+	
+	
 }
 
 void AFPSCharacter::StopFire()
@@ -282,9 +354,9 @@ void AFPSCharacter::StopFire()
 }
 
 void AFPSCharacter::ResetFire()
-	{
-		bCanFire = true;
-	}
+{
+	StopFire();
+}
 
 float AFPSCharacter::GetHealth()
 {
@@ -401,6 +473,8 @@ float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& Da
 			{
 				KilledBy(EventInstigator);
 			}
+			SetCombatStatus(EventInstigator);
+
 			return damageApplied;
 		}
 

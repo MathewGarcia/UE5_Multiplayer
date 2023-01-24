@@ -2,7 +2,6 @@
 
 
 #include "PlayerInfoState.h"
-
 #include "FPSCharacter.h"
 #include "Net/UnrealNetwork.h"
 
@@ -94,17 +93,16 @@ void APlayerInfoState::SetInCombat(bool CombatCond)
 void APlayerInfoState::InCombatFalse()
 {
 	OnRep_InCombat();
-	RechargeShield();
 }
 
 void APlayerInfoState::RechargeShield()
 {
-
-	 player = Cast<AFPSCharacter>(GetPawn());
-	//UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
-	if (player) {
+		player = Cast<AFPSCharacter>(GetPawn());
+		if (player) {
+			if(player->GetShield() != player->MaxShield)
 			player->SetShield(player->GetShield() + 10);
-	}
+		}
+	
 	GetWorld()->GetTimerManager().ClearTimer(RechargeHandle);
 
 }
@@ -129,12 +127,14 @@ void APlayerInfoState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (player) {
-		if (!bInCombat && player->GetShield() != player->MaxShield)
-		{
-			RechargeShield();
-		}
-	}
+
+		
+			if (!bInCombat)
+			{
+				RechargeShield();
+			}
+		
+	
 }
 
 void APlayerInfoState::OnRep_Level()
@@ -147,12 +147,15 @@ void APlayerInfoState::OnRep_InCombat()
 	if(!bInCombat)
 	{
 		SetInCombat(true);
+		GetWorld()->GetTimerManager().SetTimer(RechargeHandle, this, &APlayerInfoState::InCombatFalse, RechargeRate, false);
+
 	}
 	else
 	{
 		SetInCombat(false);
+
+		
 	}
 	UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
-	GetWorld()->GetTimerManager().SetTimer(RechargeHandle, this, &APlayerInfoState::InCombatFalse, RechargeRate, false);
 
 }

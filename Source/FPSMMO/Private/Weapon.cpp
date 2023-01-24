@@ -3,6 +3,9 @@
 
 #include "Weapon.h"
 
+#include "FPSCharacter.h"
+#include "FPSPlayerController.h"
+#include "Components/BoxComponent.h"
 // Sets default values
 AWeapon::AWeapon()
 {
@@ -14,13 +17,69 @@ AWeapon::AWeapon()
 	WeaponMesh->SetupAttachment(RootComponent);
 	SetReplicates(true);
 	WeaponMesh->SetOwnerNoSee(true);
+
+	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComp"));
+	BoxCollision->SetupAttachment(WeaponMesh);
+
+	bPickedUp = false;
+}
+
+void AWeapon::OnRep_PickedUp()
+{
+	SetPickUp(bPickedUp);
+}
+
+bool AWeapon::GetPickedUp()
+{
+	return bPickedUp;
+}
+
+void AWeapon::SetPickUp(bool isPickedUp)
+{
+	if(GetLocalRole() == ROLE_Authority)
+	bPickedUp = isPickedUp;
+}
+
+void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
+	if(player)
+	{
+		AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(player->GetController());
+		if(FPSPC)
+		{
+			FText text = FText::FromString(TEXT("Press E to Pick Up"));
+
+			FPSPC->UpdateText(text);
+		}
+	}
+}
+
+void AWeapon::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex)
+{
+
+	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
+	if (player)
+	{
+		AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(player->GetController());
+		if (FPSPC)
+		{
+			FText text = FText::FromString(TEXT(""));
+			FPSPC->UpdateText(text);
+		}
+	}
 }
 
 // Called when the game starts or when spawned
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	BoxCollision->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnBoxBeginOverlap);
+	BoxCollision->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnBoxEndOverlap);
+
 }
 
 // Called every frame
@@ -35,4 +94,5 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 
 	// Replicate MyReplicatedVariable to all clients
 	DOREPLIFETIME(AWeapon, Damage);
+	DOREPLIFETIME(AWeapon, bPickedUp);
 }

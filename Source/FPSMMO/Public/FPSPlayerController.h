@@ -29,6 +29,8 @@ public:
 
 		void UpdateShield(float &Shield);
 
+		void UpdateText(FText text);
+
 		AFPSCharacter* player;
 
 protected:

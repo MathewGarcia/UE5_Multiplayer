@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+struct FInputActionValue;
 class APlayerInfoState;
 class AFPSPlayerController;
 class UpHUD;
@@ -24,15 +25,13 @@ public:
 	AFPSCharacter();
 
 	// Handle movement input
-	void MoveForward(float Value);
-	void MoveRight(float Value);
+	void Move(const FInputActionValue& Value);
 
 	// Handle camera rotation input
-	void RotateCameraYaw(float Value);
-	void RotateCameraPitch(float Value);
+	void Look(const FInputActionValue& Value);
 
 	// Handle firing input
-	void StartFire();
+	void StartFire(const FInputActionValue& Val);
 	void StopFire();
 	void ResetFire();
 
@@ -124,6 +123,15 @@ protected:
 	AProjectile* Projectile;
 
 	void KilledBy(AController* EventInstigator);
+
+	void Interact();
+
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
+		class UInputMappingContext* InputMapping;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
+		class UInputConfigData* InputActions;
 
 	//APlayerInfoState*instigatorPlayerState;
 public:	

@@ -37,6 +37,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfoState")
 	APlayerInfoState* GetPlayerInfoState();
+
+	UFUNCTION(BlueprintCallable, Category = "UpdateText")
+		FText UpdateText();
+
+	FText text;
 private:
 	APlayerState* PS;
 	
