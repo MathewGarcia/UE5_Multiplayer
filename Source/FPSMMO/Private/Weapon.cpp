@@ -53,6 +53,8 @@ void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 
 			FPSPC->UpdateText(text);
 		}
+		player->bInCollision = true;
+		player->WeaponCollided = this;
 	}
 }
 
@@ -69,7 +71,15 @@ void AWeapon::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 			FText text = FText::FromString(TEXT(""));
 			FPSPC->UpdateText(text);
 		}
+
+		player->WeaponCollided = nullptr;
+		player->bInCollision = false;
 	}
+}
+
+void AWeapon::KillActor_Implementation()
+{
+	Destroy();
 }
 
 // Called when the game starts or when spawned
@@ -82,10 +92,16 @@ void AWeapon::BeginPlay()
 
 }
 
+
 // Called every frame
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if(bPickedUp)
+	{
+		BoxCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
 
 }
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

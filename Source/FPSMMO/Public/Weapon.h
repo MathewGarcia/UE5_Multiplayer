@@ -46,7 +46,8 @@ public:
 	UFUNCTION()
 		void OnBoxEndOverlap(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-
+	UFUNCTION(Server, Reliable)
+	void KillActor();
 protected:
 
 
@@ -55,6 +56,7 @@ protected:
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

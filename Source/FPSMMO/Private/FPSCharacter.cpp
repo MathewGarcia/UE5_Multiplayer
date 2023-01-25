@@ -156,6 +156,47 @@ void AFPSCharacter::SetCombatStatus(AController* EventInstigator)
 	}
 }
 
+void AFPSCharacter::WeaponSwap(const FInputActionValue& Value)
+{
+	float Val = Value.Get<float>();
+	//call Swap function
+	UE_LOG(LogTemp, Warning, TEXT("Direciton: %f"), Val);
+	SwitchWeapon(Val);
+	
+}
+
+void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
+{
+		if (Direction > 0)
+		{
+			//this means we're going up
+			if (ClientWeapons.Num() > 1)
+			{
+				if (CurrentWeapon != ClientWeapons[1]) {
+					PreviousWeapon = ClientWeapons[0];
+					UseWeapon(ClientWeapons[1]);
+					UE_LOG(LogTemp, Warning, TEXT("Using Weapon: %s"), *CurrentWeapon->GetName());
+					UE_LOG(LogTemp, Warning, TEXT("Previous Weapon: %s"), *PreviousWeapon->GetName());
+
+				}
+			}
+		}
+		else
+		{
+			if (ClientWeapons.Num() > 1) {
+				if (CurrentWeapon != ClientWeapons[0]) {
+					PreviousWeapon = ClientWeapons[1];
+					UseWeapon(ClientWeapons[0]);
+					UE_LOG(LogTemp, Warning, TEXT("Using Weapon: %s"), *CurrentWeapon->GetName());
+					UE_LOG(LogTemp, Warning, TEXT("Previous Weapon: %s"), *PreviousWeapon->GetName());
+				}
+			}
+
+
+		}
+	
+}
+
 // Called when the game starts or when spawned
 void AFPSCharacter::BeginPlay()
 {
@@ -175,7 +216,7 @@ void AFPSCharacter::BeginPlay()
 				AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(BP->GeneratedClass);
 				Weapon->SetPickUp(true);
 				EquipWeapon(Weapon);
-				UseWeapon(Weapon);
+				OnRep_CurrentWeapon();
 			}
 		
 		}
@@ -227,12 +268,64 @@ void AFPSCharacter::OnRep_Shield()
 	UpdateShield(Shield);
 }
 
+void AFPSCharacter::OnRep_PreviousWeapon()
+{
+	if(CurrentWeapon == ClientWeapons[1])
+	{
+		PreviousWeapon = ClientWeapons[0];
+	}
+	else
+	{
+		PreviousWeapon = ClientWeapons[1];
+	}
+}
+
+void AFPSCharacter::OnRep_EquippedWeapons()
+{
+	UpdateEquippedWeapons();
+}
+
+void AFPSCharacter::UpdateEquippedWeapons()
+{
+	ClientWeapons = EquippedWeapons;
+
+	if(!CurrentWeapon)
+	CurrentWeapon = EquippedWeapons.Num() > 0 ? EquippedWeapons[0] : nullptr;
+
+}
+
 void AFPSCharacter::OnRep_CurrentWeapon()
 {
-	CurrentWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	CurrentWeapon->AttachToComponent(playerMeshTest, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
-	CurrentWeapon->SetOwner(this);
-	CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
+	//TODO: just change the mesh on server side so the other player can see it
+
+		if (PreviousWeapon) {
+			PreviousWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+			PreviousWeapon->SetHidden(true);
+		}
+		else
+		{
+			PreviousWeapon = CurrentWeapon;
+		}
+
+	if(!CurrentWeapon)
+	{
+		if(PreviousWeapon == ClientWeapons[0])
+		{
+			CurrentWeapon = ClientWeapons[1];
+		}
+		else
+		{
+			CurrentWeapon = ClientWeapons[0];
+		}
+	}
+		if (CurrentWeapon) {
+			CurrentWeapon->AttachToComponent(playerMeshTest, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
+			CurrentWeapon->SetOwner(this);
+			CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
+			//hide previous weapon?
+			//update mesh?
+			WeaponMesh->SetStaticMesh(CurrentWeapon->WeaponMesh->GetStaticMesh());
+		}
 }
 
 void AFPSCharacter::HandleFire_Implementation()
@@ -283,7 +376,30 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 
 void AFPSCharacter::Interact()
 {
-	UE_LOG(LogTemp, Warning, TEXT("INTERACTING"));
+	HandleInteract();
+}
+
+void AFPSCharacter::HandleInteract_Implementation()
+{
+	if (bInCollision)
+	{
+		//add the weapon to the equip
+		if (WeaponCollided) {
+				EquipWeapon(WeaponCollided);
+				WeaponCollided->SetHidden(true);
+				WeaponCollided->SetPickUp(true);
+			
+			UE_LOG(LogTemp, Warning, TEXT("INTERACTING"));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("INTERACTING FAILED"));
+
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Weapons In Inventory: %d"), EquippedWeapons.Num());
+
+	}
 }
 
 // Called every frame
@@ -300,17 +416,6 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	/*check(PlayerInputComponent);
-
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-	PlayerInputComponent->BindAxis("MoveForward", this, &AFPSCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AFPSCharacter::MoveRight);
-	PlayerInputComponent->BindAxis("RotateCameraYaw", this, &AFPSCharacter::RotateCameraYaw);
-	PlayerInputComponent->BindAxis("RotateCameraPitch", this, &AFPSCharacter::RotateCameraPitch);
-	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AFPSCharacter::StartFire);
-	PlayerInputComponent->BindAction("Fire", IE_Released, this, &AFPSCharacter::StopFire);
-	PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &AFPSCharacter::Interact);*/
 
 	APlayerController* PC = Cast<APlayerController>(GetController());
 	if(PC)
@@ -327,6 +432,8 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputMove, ETriggerEvent::Triggered, this, &AFPSCharacter::Move);
 	PEI->BindAction(InputActions->InputLook, ETriggerEvent::Triggered, this, &AFPSCharacter::Look);
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
+	PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Triggered, this, &AFPSCharacter::Interact);
+	PEI->BindAction(InputActions->InputSwapWeapons, ETriggerEvent::Triggered, this, &AFPSCharacter::WeaponSwap);
 
 }
 
@@ -416,20 +523,41 @@ void AFPSCharacter::UpdateShield(float SP)
 
 void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 {
-		EquippedWeapons.Add(WeaponToEquip);
-		if (!CurrentWeapon)
-		{
-			CurrentWeapon = WeaponToEquip;
-		}
+	if (WeaponToEquip != nullptr) {
+		//if we dont have max weapons, add it to the equipped weapons.
+
+			if (EquippedWeapons.Num() > 0 && EquippedWeapons.Num() < 2) {
+				if (EquippedWeapons[0] == nullptr)
+				{
+					EquippedWeapons[0] = WeaponToEquip;
+				}
+				else {
+					EquippedWeapons.Add(WeaponToEquip);
+				}
+			}
+			else if(EquippedWeapons.IsEmpty())
+			{
+				EquippedWeapons.Add(WeaponToEquip);
+
+			}
+			//else we want to replace the current weapon with the new weapon
+			else
+			{
+				PreviousWeapon = CurrentWeapon;
+				UseWeapon(WeaponToEquip);
+			}
+
+			OnRep_EquippedWeapons();
+
+	}
+	
 }
 
 
 
 void AFPSCharacter::UseWeapon(AWeapon* Weapon)
 {
-
 		CurrentWeapon = Weapon;
-		OnRep_CurrentWeapon();
 }
 
 void AFPSCharacter::SetClientSideWeapon(AWeapon* Weapon)
@@ -489,4 +617,6 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, HP);
 	DOREPLIFETIME(AFPSCharacter, Shield);
 	DOREPLIFETIME(AFPSCharacter, CurrentWeapon);
+	DOREPLIFETIME(AFPSCharacter, EquippedWeapons);
+	DOREPLIFETIME(AFPSCharacter, PreviousWeapon);
 }

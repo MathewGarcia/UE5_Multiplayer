@@ -25,4 +25,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputFire;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputInteraction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputSwapWeapons;
 };

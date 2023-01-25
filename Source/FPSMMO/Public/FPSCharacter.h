@@ -65,6 +65,17 @@ public:
 
 	void SetCombatStatus(AController*EventInstigator);
 
+	//weapon pick up
+	bool bInCollision;
+
+	AWeapon* WeaponCollided;
+
+	void WeaponSwap(const FInputActionValue& Value);
+
+	UFUNCTION(Server, Reliable)
+	void SwitchWeapon(float Direction);
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -100,9 +111,24 @@ protected:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, ReplicatedUsing= OnRep_CurrentWeapon, Category = "Weapon")
 		AWeapon* CurrentWeapon = nullptr;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Weapons")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, ReplicatedUsing = OnRep_PreviousWeapon, Category = "Weapon")
+	AWeapon* PreviousWeapon = nullptr;
+
+	UFUNCTION()
+	void OnRep_PreviousWeapon();
+
+	UPROPERTY(VisibleAnywhere,ReplicatedUsing=OnRep_EquippedWeapons,BlueprintReadOnly, Category = "Weapons")
 		TArray<AWeapon*> EquippedWeapons;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapons")
+	TArray<AWeapon*> ClientWeapons;
+
+	UFUNCTION()
+		void OnRep_EquippedWeapons();
+
+	void UpdateEquippedWeapons();
+
+	AWeapon* WeapToEquip;
 
 	UPROPERTY(EditDefaultsOnly, Category = "pHUDClass")
 		TSubclassOf<UpHUD> pHUDClass;
@@ -126,6 +152,9 @@ protected:
 
 	void Interact();
 
+	UFUNCTION(Server, Reliable)
+		void HandleInteract();
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
 		class UInputMappingContext* InputMapping;
@@ -133,7 +162,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
 		class UInputConfigData* InputActions;
 
-	//APlayerInfoState*instigatorPlayerState;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
