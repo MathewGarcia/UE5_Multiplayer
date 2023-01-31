@@ -40,6 +40,8 @@ public:
 
 	void SetPickUp(bool isPickedUp);
 
+	bool bIsAttached = false;
+
 	UFUNCTION()
 		void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 

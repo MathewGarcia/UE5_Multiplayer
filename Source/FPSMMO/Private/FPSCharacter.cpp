@@ -175,9 +175,7 @@ void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 				if (CurrentWeapon != ClientWeapons[1]) {
 					PreviousWeapon = ClientWeapons[0];
 					UseWeapon(ClientWeapons[1]);
-					UE_LOG(LogTemp, Warning, TEXT("Using Weapon: %s"), *CurrentWeapon->GetName());
-					UE_LOG(LogTemp, Warning, TEXT("Previous Weapon: %s"), *PreviousWeapon->GetName());
-
+					OnRep_CurrentWeapon();
 				}
 			}
 		}
@@ -187,8 +185,7 @@ void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 				if (CurrentWeapon != ClientWeapons[0]) {
 					PreviousWeapon = ClientWeapons[1];
 					UseWeapon(ClientWeapons[0]);
-					UE_LOG(LogTemp, Warning, TEXT("Using Weapon: %s"), *CurrentWeapon->GetName());
-					UE_LOG(LogTemp, Warning, TEXT("Previous Weapon: %s"), *PreviousWeapon->GetName());
+					OnRep_CurrentWeapon();
 				}
 			}
 
@@ -212,11 +209,12 @@ void AFPSCharacter::BeginPlay()
 			UBlueprint* BP = Cast<UBlueprint>(Asset);
 			if (BP->GeneratedClass && BP->GeneratedClass->IsChildOf(AWeapon::StaticClass()))
 			{
-				// Create an instance of the weapon object
-				AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(BP->GeneratedClass);
-				Weapon->SetPickUp(true);
-				EquipWeapon(Weapon);
-				OnRep_CurrentWeapon();
+					// Create an instance of the weapon object
+					AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(BP->GeneratedClass);
+						Weapon->SetPickUp(true);
+						EquipWeapon(Weapon);
+						OnRep_CurrentWeapon();
+				
 			}
 		
 		}
@@ -233,9 +231,10 @@ void AFPSCharacter::BeginPlay()
 	{
 		HUDWidget = FPSPC->HUDWidget;
 	}
-
-	SetShield(100);
-	SetHealth(100);
+	if (HasAuthority()) {
+		SetShield(100);
+		SetHealth(100);
+	}
 
 }
 
@@ -270,13 +269,19 @@ void AFPSCharacter::OnRep_Shield()
 
 void AFPSCharacter::OnRep_PreviousWeapon()
 {
-	if(CurrentWeapon == ClientWeapons[1])
-	{
-		PreviousWeapon = ClientWeapons[0];
+	if (ClientWeapons.Num() > 2) {
+		if (CurrentWeapon == ClientWeapons[1])
+		{
+			PreviousWeapon = ClientWeapons[0];
+		}
+		else
+		{
+			PreviousWeapon = ClientWeapons[1];
+		}
 	}
 	else
 	{
-		PreviousWeapon = ClientWeapons[1];
+		PreviousWeapon = ClientWeapons[0];
 	}
 }
 
@@ -296,35 +301,46 @@ void AFPSCharacter::UpdateEquippedWeapons()
 
 void AFPSCharacter::OnRep_CurrentWeapon()
 {
-	//TODO: just change the mesh on server side so the other player can see it
+			if (!PreviousWeapon) {
+				OnRep_PreviousWeapon();
+			}
 
-		if (PreviousWeapon) {
-			PreviousWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-			PreviousWeapon->SetHidden(true);
-		}
-		else
+			PreviousWeapon->SetActorHiddenInGame(true);
+
+		if (!CurrentWeapon)
 		{
-			PreviousWeapon = CurrentWeapon;
+			if (ClientWeapons.Num() > 2) {
+				if (PreviousWeapon == ClientWeapons[0])
+				{
+					CurrentWeapon = ClientWeapons[1];
+				}
+				else
+				{
+					CurrentWeapon = ClientWeapons[0];
+				}
+			}
+			else
+			{
+				CurrentWeapon = ClientWeapons[0];
+			}
 		}
 
-	if(!CurrentWeapon)
-	{
-		if(PreviousWeapon == ClientWeapons[0])
-		{
-			CurrentWeapon = ClientWeapons[1];
-		}
-		else
-		{
-			CurrentWeapon = ClientWeapons[0];
-		}
-	}
 		if (CurrentWeapon) {
-			CurrentWeapon->AttachToComponent(playerMeshTest, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
-			CurrentWeapon->SetOwner(this);
-			CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
+			//if the current weapon is not attached to the player
+			if (!CurrentWeapon->bIsAttached) {
+				CurrentWeapon->AttachToComponent(playerMeshTest, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
+				CurrentWeapon->bIsAttached = true;
+				CurrentWeapon->SetOwner(this);
+				CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
+			}
 			//hide previous weapon?
 			//update mesh?
-			WeaponMesh->SetStaticMesh(CurrentWeapon->WeaponMesh->GetStaticMesh());
+			CurrentWeapon->SetActorHiddenInGame(false);
+			if (IsLocallyControlled())
+			{
+				WeaponMesh->SetStaticMesh(CurrentWeapon->WeaponMesh->GetStaticMesh());
+
+			}
 		}
 }
 
@@ -376,29 +392,21 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 
 void AFPSCharacter::Interact()
 {
-	HandleInteract();
+		HandleInteract();
 }
 
 void AFPSCharacter::HandleInteract_Implementation()
 {
-	if (bInCollision)
-	{
-		//add the weapon to the equip
-		if (WeaponCollided) {
-				EquipWeapon(WeaponCollided);
-				WeaponCollided->SetHidden(true);
-				WeaponCollided->SetPickUp(true);
-			
-			UE_LOG(LogTemp, Warning, TEXT("INTERACTING"));
-		}
-		else
+	if (GetLocalRole() == ROLE_Authority) {
+		if (bInCollision)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("INTERACTING FAILED"));
-
+			//add the weapon to the equip
+			if (WeaponCollided) {
+				WeaponCollided->SetActorHiddenInGame(true);
+				WeaponCollided->SetPickUp(true);
+				EquipWeapon(WeaponCollided);
+			}
 		}
-
-		UE_LOG(LogTemp, Warning, TEXT("Weapons In Inventory: %d"), EquippedWeapons.Num());
-
 	}
 }
 
@@ -516,9 +524,6 @@ void AFPSCharacter::UpdateShield(float SP)
 			FPSPC->UpdateShield(NSP);
 		}
 	}
-	if (GetLocalRole() == ROLE_Authority) {
-	
-	}
 }
 
 void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
@@ -538,12 +543,49 @@ void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 			else if(EquippedWeapons.IsEmpty())
 			{
 				EquippedWeapons.Add(WeaponToEquip);
-
 			}
 			//else we want to replace the current weapon with the new weapon
 			else
 			{
-				PreviousWeapon = CurrentWeapon;
+
+				//TODO:we want to drop the weapon 5ft away from the player towards the ground.
+				AWeapon* DroppedWeapon = CurrentWeapon;
+				FVector DropLocation;
+
+				DropLocation *= 5;
+
+				FVector TraceEnd = GetActorLocation() - 500.0f;
+
+				FCollisionQueryParams QueryParams;
+
+				QueryParams.AddIgnoredActor(this);
+				QueryParams.bTraceComplex = true;
+
+				FHitResult Hit;
+
+				if(GetWorld()->LineTraceSingleByChannel(Hit, DropLocation, TraceEnd, ECC_Visibility))
+				{
+
+					DroppedWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+					DroppedWeapon->SetActorLocation(Hit.Location);
+					DroppedWeapon->SetPickUp(false);
+
+
+					UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *Hit.GetActor()->GetName());
+				}
+
+				DrawDebugLine(GetWorld(), DropLocation, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
+
+
+
+				if(CurrentWeapon == EquippedWeapons[0])
+				{
+					EquippedWeapons[0] = WeaponToEquip;
+				}
+				else
+				{
+					EquippedWeapons[1] = WeaponToEquip;
+				}
 				UseWeapon(WeaponToEquip);
 			}
 
@@ -557,7 +599,11 @@ void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 
 void AFPSCharacter::UseWeapon(AWeapon* Weapon)
 {
+	if (GetLocalRole() == ROLE_Authority) {
 		CurrentWeapon = Weapon;
+		OnRep_CurrentWeapon();
+	}
+
 }
 
 void AFPSCharacter::SetClientSideWeapon(AWeapon* Weapon)
