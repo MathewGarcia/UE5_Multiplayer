@@ -13,6 +13,8 @@ class UpHUD;
 class AWeapon;
 class USpringArmComponent;
 class UCameraComponent;
+class UInputMappingContext;
+
 UCLASS()
 class FPSMMO_API AFPSCharacter : public ACharacter
 {
@@ -50,6 +52,7 @@ public:
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void UseWeapon(AWeapon* WeaponToUse);
 
+	//possibly save for later?
 	void SetClientSideWeapon(AWeapon* Weapon);
 
 	AWeapon* GetCurrentWeapon();
@@ -74,6 +77,29 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void SwitchWeapon(float Direction);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerStartSprint();
+
+	void SetSprint(bool &bSprintVal, bool Val);
+
+	bool GetSprint();
+
+	void StartSprint();
+	//crouch
+	void StartCrouch();
+
+	void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
+	void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
+	void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Crouch)
+		FVector CrouchEyeOffset;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Crouch)
+		float CrouchSpeed;
 
 
 protected:
@@ -157,10 +183,17 @@ protected:
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
-		class UInputMappingContext* InputMapping;
+			UInputMappingContext* InputMapping;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
 		class UInputConfigData* InputActions;
+
+
+	UPROPERTY(ReplicatedUsing = OnRep_Sprint)
+		bool bSprint;
+
+	UFUNCTION()
+		void OnRep_Sprint();
 
 
 public:	

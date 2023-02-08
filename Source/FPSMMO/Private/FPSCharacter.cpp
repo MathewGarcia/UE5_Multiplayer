@@ -55,8 +55,11 @@ AFPSCharacter::AFPSCharacter()
 		playerMeshTest->SetVisibility(true);
 		playerMeshTest->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		playerMeshTest->SetOnlyOwnerSee(false);
-		// Disable crouching
-		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = false;
+	//set crouching true
+		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+
+		CrouchEyeOffset = FVector(0.f);
+		CrouchSpeed = 12.f;
 
 		MaxShield = 100;
 
@@ -192,6 +195,103 @@ void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 
 		}
 	
+}
+
+void AFPSCharacter::OnRep_Sprint()
+{
+	if(bSprint)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = 100000.0f;
+	}
+	else
+	{
+		GetCharacterMovement()->MaxWalkSpeed = 600.0f;
+	}
+}
+
+void AFPSCharacter::ServerStartSprint_Implementation()
+{
+	if (!bSprint) {
+		SetSprint(bSprint, true);
+	}
+	else
+	{
+		SetSprint(bSprint, false);
+	}
+}
+
+bool AFPSCharacter::ServerStartSprint_Validate()
+{
+	return true;
+}
+
+void AFPSCharacter::SetSprint(bool &bSprintVal, bool Val)
+{
+	if (HasAuthority()) {
+		bSprintVal = Val;
+		OnRep_Sprint();
+	}
+
+}
+
+bool AFPSCharacter::GetSprint()
+{
+	return bSprint;
+}
+
+void AFPSCharacter::StartSprint()
+{
+		ServerStartSprint();
+}
+
+void AFPSCharacter::StartCrouch()
+{
+	//TODO:ADD SLIDE
+	if (!bIsCrouched) {
+		Crouch();
+	}
+	else
+	{
+		UnCrouch();
+	}
+}
+
+void AFPSCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
+{
+	if(HalfHeightAdjust == 0.f)
+	{
+		return;
+	}
+	float StartBaseEyeHeight = BaseEyeHeight;
+	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight + HalfHeightAdjust;
+	FPSCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
+
+}
+
+void AFPSCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
+{
+	if (HalfHeightAdjust == 0.f)
+	{
+		return;
+	}
+	float StartBaseEyeHeight = BaseEyeHeight;
+	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight - HalfHeightAdjust;
+	FPSCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
+}
+
+void AFPSCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
+{
+	
+	Super::CalcCamera(DeltaTime, OutResult);
+
+	if (FPSCameraComponent)
+	{
+		FPSCameraComponent->GetCameraView(DeltaTime, OutResult);
+		OutResult.Location += CrouchEyeOffset;
+	}
+
 }
 
 // Called when the game starts or when spawned
@@ -415,6 +515,8 @@ void AFPSCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	float CrouchInterpTime = FMath::Min(1.f, CrouchSpeed * DeltaTime);
+	CrouchEyeOffset = (1.f - CrouchInterpTime) * CrouchEyeOffset;
 	
 
 }
@@ -442,6 +544,9 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
 	PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Triggered, this, &AFPSCharacter::Interact);
 	PEI->BindAction(InputActions->InputSwapWeapons, ETriggerEvent::Triggered, this, &AFPSCharacter::WeaponSwap);
+	PEI->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &AFPSCharacter::StartSprint);
+	PEI->BindAction(InputActions->InputJump, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+	PEI->BindAction(InputActions->InputCrouch, ETriggerEvent::Triggered, this, &AFPSCharacter::StartCrouch);
 
 }
 
@@ -665,4 +770,5 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, CurrentWeapon);
 	DOREPLIFETIME(AFPSCharacter, EquippedWeapons);
 	DOREPLIFETIME(AFPSCharacter, PreviousWeapon);
+	DOREPLIFETIME(AFPSCharacter, bSprint);
 }
