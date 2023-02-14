@@ -20,7 +20,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "InputConfigData.h"
-
+#include "PlayerCharacterMovementComponent.h"
 
 // Sets default values
 AFPSCharacter::AFPSCharacter()
@@ -55,13 +55,17 @@ AFPSCharacter::AFPSCharacter()
 		playerMeshTest->SetVisibility(true);
 		playerMeshTest->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		playerMeshTest->SetOnlyOwnerSee(false);
-	//set crouching true
-		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
-
 		CrouchEyeOffset = FVector(0.f);
 		CrouchSpeed = 12.f;
 
 		MaxShield = 100;
+
+	//set bcancrouch to true
+		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+
+		SlideStartTime = 0;
+
+
 
 }
 
@@ -201,7 +205,7 @@ void AFPSCharacter::OnRep_Sprint()
 {
 	if(bSprint)
 	{
-		GetCharacterMovement()->MaxWalkSpeed = 100000.0f;
+		GetCharacterMovement()->MaxWalkSpeed = 1200.0f;
 	}
 	else
 	{
@@ -246,14 +250,31 @@ void AFPSCharacter::StartSprint()
 
 void AFPSCharacter::StartCrouch()
 {
-	//TODO:ADD SLIDE
-	if (!bIsCrouched) {
-		Crouch();
-	}
-	else
-	{
-		UnCrouch();
-	}
+
+	 
+		 if (!bIsCrouched) {
+			 if (CanSlide())
+			 {
+				 UE_LOG(LogTemp, Warning, TEXT("Attempting to slide!"));
+				if(HasAuthority())
+				{
+					SetSliding();
+				}
+				else
+				{
+					ServerSlide();
+				}
+			 }
+			 else {
+
+				 Crouch();
+			 }
+		 }
+		 else
+		 {
+			 UnCrouch();
+		 }
+	 
 }
 
 void AFPSCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
@@ -292,6 +313,66 @@ void AFPSCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 		OutResult.Location += CrouchEyeOffset;
 	}
 
+}
+
+bool AFPSCharacter::GetSliding()
+{
+	return bIsSliding;
+}
+
+void AFPSCharacter::OnRep_Sliding()
+{
+
+	SetSliding();
+}
+
+bool AFPSCharacter::CanSlide()
+{
+	if (GetCharacterMovement()->IsMovingOnGround() && GetCharacterMovement()->Velocity.Size() > 1000.0f && bIsSliding == false)
+	{
+		return true;
+	}
+	return false;
+}
+
+void AFPSCharacter::SetSliding()
+{
+	if(HasAuthority())
+	{
+		SlideStartTime = GetWorld()->GetTimeSeconds();
+		bIsSliding = !bIsSliding;
+	}
+}
+
+void AFPSCharacter::ServerEndSlide_Implementation()
+{
+	EndSlide();
+}
+
+bool AFPSCharacter::ServerEndSlide_Validate()
+{
+		return true;
+	
+}
+
+void AFPSCharacter::EndSlide()
+{
+	if (GetCharacterMovement()->Velocity.Size() < 50.0f || (GetWorld()->GetTimeSeconds() - SlideStartTime) >= 0.5f) {
+
+		SetSliding();
+		GetCharacterMovement()->MaxWalkSpeed = 600.f;
+	}
+	
+}
+
+void AFPSCharacter::ServerSlide_Implementation()
+{
+	OnRep_Sliding();
+}
+
+bool AFPSCharacter::ServerSlide_Validate()
+{
+	return true;
 }
 
 // Called when the game starts or when spawned
@@ -517,6 +598,13 @@ void AFPSCharacter::Tick(float DeltaTime)
 
 	float CrouchInterpTime = FMath::Min(1.f, CrouchSpeed * DeltaTime);
 	CrouchEyeOffset = (1.f - CrouchInterpTime) * CrouchEyeOffset;
+
+
+	if (bIsSliding)
+	{
+		GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * 1500.0f;
+		ServerEndSlide();
+	}
 	
 
 }
@@ -771,4 +859,6 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, EquippedWeapons);
 	DOREPLIFETIME(AFPSCharacter, PreviousWeapon);
 	DOREPLIFETIME(AFPSCharacter, bSprint);
+	DOREPLIFETIME(AFPSCharacter, bIsSliding);
+	DOREPLIFETIME(AFPSCharacter, SlideStartTime);
 }

@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class UPlayerCharacterMovementComponent;
 struct FInputActionValue;
 class APlayerInfoState;
 class AFPSPlayerController;
@@ -101,6 +102,33 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Crouch)
 		float CrouchSpeed;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+		UPlayerCharacterMovementComponent* PlayerCharacterMovement;
+
+
+	UFUNCTION(BlueprintCallable, Category = Slide)
+		bool GetSliding();
+
+	UFUNCTION()
+		void OnRep_Sliding();
+
+	bool CanSlide();
+
+	void SetSliding();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSlide();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerEndSlide();
+
+	void EndSlide();
+
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = SlideTime)
+	float SlideStartTime;
+private:
+	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
+		bool bIsSliding;
 
 protected:
 	// Called when the game starts or when spawned
