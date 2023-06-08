@@ -107,6 +107,21 @@ void APlayerInfoState::RechargeShield()
 
 }
 
+int APlayerInfoState::GetGold()
+{
+	return Gold;
+}
+
+void APlayerInfoState::SetGold(int gold)
+{
+	Gold += gold;
+}
+
+void APlayerInfoState::UpdateGold(int gold)
+{
+	SetGold(gold);
+}
+
 void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

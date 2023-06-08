@@ -441,6 +441,11 @@ void AFPSCharacter::SetShield(float shield)
 void AFPSCharacter::OnRep_Health()
 {
 	UpdateHealth();
+	if (GetHealth() <= 0)
+	{
+		KilledBy(LastDamagingPlayer);
+
+	}
 }
 
 void AFPSCharacter::OnRep_Shield()
@@ -567,6 +572,7 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 		if (instigatorPlayerState)
 		{
 			instigatorPlayerState->UpdateEXP(10);
+			instigatorPlayerState->UpdateGold(5);
 		}
 	}
 }
@@ -743,11 +749,11 @@ void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 
 				//TODO:we want to drop the weapon 5ft away from the player towards the ground.
 				AWeapon* DroppedWeapon = CurrentWeapon;
-				FVector DropLocation;
+				FVector DropDirection = GetActorForwardVector();
 
-				DropLocation *= 5;
+				FVector DropLocation = GetActorLocation() + DropDirection * 5.0f; // 5 feet forward. Adjust this multiplier as per your requirement.
 
-				FVector TraceEnd = GetActorLocation() - 500.0f;
+				FVector TraceEnd = DropLocation - FVector(0, 0, 500.0f); // 500 units down.
 
 				FCollisionQueryParams QueryParams;
 
@@ -826,6 +832,7 @@ APlayerHUD* AFPSCharacter::GetPlayerHUD()
 }
 float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	LastDamagingPlayer = EventInstigator;
 		if (GetShield() > 0) {
 			float damageApplied = GetShield() - DamageTaken;
 			SetShield(damageApplied);
@@ -836,10 +843,6 @@ float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& Da
 		{
 			float damageApplied = GetHealth() - DamageTaken;
 			SetHealth(damageApplied);
-			if(GetHealth() <= 0)
-			{
-				KilledBy(EventInstigator);
-			}
 			SetCombatStatus(EventInstigator);
 
 			return damageApplied;

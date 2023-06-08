@@ -126,6 +126,9 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = SlideTime)
 	float SlideStartTime;
+
+	UPROPERTY(Replicated)
+		AController* LastDamagingPlayer;
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;

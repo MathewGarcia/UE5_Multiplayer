@@ -45,6 +45,15 @@ public:
 	void RechargeShield();
 
 	AFPSCharacter* player;
+
+	UFUNCTION(BlueprintCallable, Category="Gold")
+	int GetGold();
+
+	void SetGold(int gold);
+
+	void UpdateGold(int gold);
+
+	int Gold;
 protected:
 
 	UPROPERTY(EditAnywhere,ReplicatedUsing = OnRep_Level, Category = "PlayerInfo")
