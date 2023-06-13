@@ -258,7 +258,7 @@ void AFPSCharacter::StartCrouch()
 				 UE_LOG(LogTemp, Warning, TEXT("Attempting to slide!"));
 				if(HasAuthority())
 				{
-					SetSliding();
+					SetSliding(true);
 				}
 				else
 				{
@@ -322,31 +322,68 @@ bool AFPSCharacter::GetSliding()
 
 void AFPSCharacter::OnRep_Sliding()
 {
-
-	SetSliding();
+	SetSliding(bIsSliding);
 }
 
 bool AFPSCharacter::CanSlide()
 {
-	if (GetCharacterMovement()->IsMovingOnGround() && GetCharacterMovement()->Velocity.Size() > 1000.0f && bIsSliding == false)
+	if (GetCharacterMovement()->IsMovingOnGround() && GetCharacterMovement()->Velocity.Size() >= 1000.0f && bIsSliding == false)
 	{
 		return true;
 	}
 	return false;
 }
 
-void AFPSCharacter::SetSliding()
+void AFPSCharacter::SetSliding(bool bInSliding)
 {
-	if(HasAuthority())
+	if(bIsSliding == bInSliding)
 	{
-		SlideStartTime = GetWorld()->GetTimeSeconds();
-		bIsSliding = !bIsSliding;
+		return;
 	}
+
+
+	bIsSliding = bInSliding;
+
+	if(HasAuthority() && bIsSliding)
+	{
+		InitialSlideVelocity = GetCharacterMovement()->Velocity;
+	}
+
+	ApplySlide();
+}
+
+
+void AFPSCharacter::ApplySlide()
+{
+	SlideStartTime = GetWorld()->GetTimeSeconds();
+
+	if (bIsSliding)
+	{
+		GetCapsuleComponent()->SetCapsuleHalfHeight(20.f); // this is the crouched half height
+		GetCharacterMovement()->Crouch(false);
+	}
+	else
+	{
+		GetCapsuleComponent()->SetCapsuleHalfHeight(88.f); // this is the standing half height
+		GetCharacterMovement()->UnCrouch(false);
+
+	}
+
+} 
+void AFPSCharacter::AdjustCameraForSlide(bool bInSliding, float DeltaTime)
+{
+
+	float TargetCameraZ = bInSliding ? 20.f : 64.f;
+	FVector CurrentCameraLocation = FPSCameraComponent->GetRelativeLocation();
+	FVector TargetCameraLocation = FVector(0.f, 0.f, TargetCameraZ);
+	FVector NewCameraLocation = FMath::VInterpTo(CurrentCameraLocation, TargetCameraLocation, DeltaTime, CameraInterpSpeed);
+	FPSCameraComponent->SetRelativeLocation(NewCameraLocation);
+
 }
 
 void AFPSCharacter::ServerEndSlide_Implementation()
 {
-	EndSlide();
+		EndSlide();
 }
 
 bool AFPSCharacter::ServerEndSlide_Validate()
@@ -357,23 +394,59 @@ bool AFPSCharacter::ServerEndSlide_Validate()
 
 void AFPSCharacter::EndSlide()
 {
-	if (GetCharacterMovement()->Velocity.Size() < 50.0f || (GetWorld()->GetTimeSeconds() - SlideStartTime) >= 0.5f) {
 
-		SetSliding();
-		GetCharacterMovement()->MaxWalkSpeed = 600.f;
-	}
-	
+		SetSliding(false);
+		InitialSlideVelocity = FVector::ZeroVector;
+
 }
 
 void AFPSCharacter::ServerSlide_Implementation()
 {
-	OnRep_Sliding();
+	SetSliding(true);
 }
 
 bool AFPSCharacter::ServerSlide_Validate()
 {
 	return true;
 }
+
+void AFPSCharacter::PerformSlide(float DeltaTime)
+{
+	GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * 1500.0f;
+
+	// Get ground slope
+	FHitResult Hit;
+	FVector StartTrace = GetActorLocation();
+	FVector EndTrace = StartTrace - FVector(0.f, 0.f, 200.f); // 200 is an arbitrary value
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, ECC_Visibility, QueryParams);
+
+	 GroundSlope = FVector::DotProduct(Hit.ImpactNormal, InitialSlideVelocity.GetSafeNormal());
+
+	// Decrease speed due to friction
+	float Friction = 200.0f; // adjust this value as necessary
+	InitialSlideVelocity -= Friction * DeltaTime * InitialSlideVelocity.GetSafeNormal();
+
+	FVector SlideDirection = InitialSlideVelocity.GetSafeNormal();
+	float CurrentSlideSpeed = GroundSlope * InitialSlideVelocity.Size() * 10;
+	float NewSlideSpeed = FMath::Max(MinimumSlideSpeed, CurrentSlideSpeed);
+	GetCharacterMovement()->Velocity = SlideDirection * NewSlideSpeed;
+
+}
+
+void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
+{
+
+	ServerTick(DeltaTime);
+
+}
+
+bool AFPSCharacter::ServerPerformSlide_Validate(float DeltaTime)
+{
+	return true;
+}
+
 
 // Called when the game starts or when spawned
 void AFPSCharacter::BeginPlay()
@@ -602,19 +675,45 @@ void AFPSCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+
+
 	float CrouchInterpTime = FMath::Min(1.f, CrouchSpeed * DeltaTime);
 	CrouchEyeOffset = (1.f - CrouchInterpTime) * CrouchEyeOffset;
 
 
+	
 	if (bIsSliding)
 	{
-		GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * 1500.0f;
-		ServerEndSlide();
+		PerformSlide(DeltaTime);
 	}
-	
+	if(HasAuthority())
+	{
+		ServerPerformSlide(DeltaTime);
+	}
+		AdjustCameraForSlide(bIsSliding, DeltaTime);
+
+		
 
 }
 
+void AFPSCharacter::ServerTick(float DeltaTime)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Initial Slide Velocity: %f"), GetCharacterMovement()->Velocity.Size());
+
+	if (GetCharacterMovement()->Velocity.Size() < 200.0f || GroundSlope < -0.1f)
+	{
+		EndSlide();
+	}
+	else if (GroundSlope >= -0.1f && GroundSlope <= 0.1f)
+	{
+		// Allow sliding on flat surfaces for a short duration
+		float SlideDuration = 1.0f; // Adjust this value as necessary
+		if (GetWorld()->GetTimeSeconds() - SlideStartTime >= SlideDuration)
+		{
+			EndSlide();
+		}
+	}
+}
 // Called to bind functionality to input
 void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -864,4 +963,5 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, bSprint);
 	DOREPLIFETIME(AFPSCharacter, bIsSliding);
 	DOREPLIFETIME(AFPSCharacter, SlideStartTime);
+	DOREPLIFETIME(AFPSCharacter, InitialSlideVelocity)
 }

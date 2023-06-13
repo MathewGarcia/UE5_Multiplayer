@@ -114,7 +114,9 @@ public:
 
 	bool CanSlide();
 
-	void SetSliding();
+	void SetSliding(bool bInSliding);
+	void ApplySlide();
+	void AdjustCameraForSlide(bool bInSliding, float DeltaTime);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSlide();
@@ -129,9 +131,31 @@ public:
 
 	UPROPERTY(Replicated)
 		AController* LastDamagingPlayer;
+
+	float CrouchedHalfHeight = 40.0f;
+	float StandingHalfHeight = 88.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+		float CameraInterpSpeed = 10.f;
+
+	void PerformSlide(float DeltaTime);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerPerformSlide(float DeltaTime);
+
+	UPROPERTY(Replicated, BlueprintReadWRite, Category = Slide)
+	FVector InitialSlideVelocity;
+
+
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
+
+
+	float MinimumSlideSpeed = 1500.0f;
+
+	float GroundSlope;
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -230,6 +254,7 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	void ServerTick(float DeltaTime);
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
