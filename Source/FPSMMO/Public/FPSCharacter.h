@@ -165,7 +165,18 @@ public:
 
 	bool getADS();
 
+	void UpdateWeaponTransform(float DeltaTime);
 
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
+		FTransform ADSWeaponTransform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(1, 1, 1));
+
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
+		FTransform DefaultWeaponTransform;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
+		float ADSInterpSpeed;
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -176,6 +187,9 @@ private:
 	float GroundSlope;
 
 	float DefaultFOV;
+
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

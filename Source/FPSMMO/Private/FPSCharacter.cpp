@@ -67,7 +67,6 @@ AFPSCharacter::AFPSCharacter()
 
 		DefaultFOV = 90;
 
-
 }
 
 void AFPSCharacter::Move(const FInputActionValue& Value)
@@ -449,7 +448,6 @@ bool AFPSCharacter::ServerSetADS_Validate(bool NewADS)
 
 void AFPSCharacter::UpdateCameraFOV()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Updating Camera FOV"));
 	if(bIsADS)
 	{
 		FPSCameraComponent->SetFieldOfView(DefaultFOV / 2);
@@ -488,6 +486,38 @@ void AFPSCharacter::OnRep_IsADS()
 bool AFPSCharacter::getADS()
 {
 	return bIsADS;
+}
+
+void AFPSCharacter::UpdateWeaponTransform(float DeltaTime)
+{
+	FTransform CurrentTransform = WeaponMesh->GetRelativeTransform();
+	FVector CurrentLocation = CurrentTransform.GetLocation();
+	FQuat CurrentRotation = CurrentTransform.GetRotation();
+
+	if (bIsADS)
+	{
+		// We are in ADS mode, interpolate towards ADS transform
+		FVector TargetLocation = ADSWeaponTransform.GetLocation();
+		FQuat TargetRotation = ADSWeaponTransform.GetRotation();
+
+		FVector NewLocation = FMath::Lerp(CurrentLocation, TargetLocation, ADSInterpSpeed * DeltaTime);
+		FQuat NewRotation = FQuat::Slerp(CurrentRotation, TargetRotation, ADSInterpSpeed * DeltaTime);
+
+		WeaponMesh->SetRelativeLocation(NewLocation);
+		WeaponMesh->SetRelativeRotation(NewRotation);
+	}
+	else
+	{
+		// We are not in ADS mode, interpolate towards default transform
+		FVector TargetLocation = DefaultWeaponTransform.GetLocation();
+		FQuat TargetRotation = DefaultWeaponTransform.GetRotation();
+
+		FVector NewLocation = FMath::Lerp(CurrentLocation, TargetLocation, ADSInterpSpeed * DeltaTime);
+		FQuat NewRotation = FQuat::Slerp(CurrentRotation, TargetRotation, ADSInterpSpeed * DeltaTime);
+
+		WeaponMesh->SetRelativeLocation(NewLocation);
+		WeaponMesh->SetRelativeRotation(NewRotation);
+	}
 }
 
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
@@ -544,6 +574,8 @@ void AFPSCharacter::BeginPlay()
 		SetShield(100);
 		SetHealth(100);
 	}
+
+	DefaultWeaponTransform = WeaponMesh->GetRelativeTransform();
 
 }
 
@@ -746,6 +778,8 @@ void AFPSCharacter::Tick(float DeltaTime)
 		ServerPerformSlide(DeltaTime);
 	}
 		AdjustCameraForSlide(bIsSliding, DeltaTime);
+
+		UpdateWeaponTransform(DeltaTime);
 
 		
 
