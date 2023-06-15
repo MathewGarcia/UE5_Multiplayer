@@ -39,4 +39,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputCrouch;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputADS;
 };

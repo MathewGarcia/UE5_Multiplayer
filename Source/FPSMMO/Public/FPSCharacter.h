@@ -143,8 +143,27 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerPerformSlide(float DeltaTime);
 
-	UPROPERTY(Replicated, BlueprintReadWRite, Category = Slide)
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = Slide)
 	FVector InitialSlideVelocity;
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsADS)
+		bool bIsADS;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetADS(bool NewADS);
+	void ServerSetADS_Implementation(bool NewADS);
+	bool ServerSetADS_Validate(bool NewADS);
+
+	void UpdateCameraFOV();
+
+	void ADS();
+
+	void SetADS(bool Val);
+
+	UFUNCTION()
+	void OnRep_IsADS();
+
+	bool getADS();
 
 
 private:
@@ -156,7 +175,7 @@ private:
 
 	float GroundSlope;
 
-
+	float DefaultFOV;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -256,6 +275,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	void ServerTick(float DeltaTime);
 
+	void StartADS(const FInputActionValue& InputActionValue);
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

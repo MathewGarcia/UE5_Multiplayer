@@ -65,6 +65,7 @@ AFPSCharacter::AFPSCharacter()
 
 		SlideStartTime = 0;
 
+		DefaultFOV = 90;
 
 
 }
@@ -435,6 +436,60 @@ void AFPSCharacter::PerformSlide(float DeltaTime)
 
 }
 
+void AFPSCharacter::ServerSetADS_Implementation(bool NewADS)
+{
+	bIsADS = NewADS;
+	ADS();
+}
+
+bool AFPSCharacter::ServerSetADS_Validate(bool NewADS)
+{
+	return true;
+}
+
+void AFPSCharacter::UpdateCameraFOV()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Updating Camera FOV"));
+	if(bIsADS)
+	{
+		FPSCameraComponent->SetFieldOfView(DefaultFOV / 2);
+	}
+	else
+	{
+		FPSCameraComponent->SetFieldOfView(DefaultFOV);
+
+	}
+}
+
+void AFPSCharacter::ADS()
+{
+	if(bIsADS)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = 200.f;
+	}
+	else
+	{
+		GetCharacterMovement()->MaxWalkSpeed = 600.f;
+	}
+
+	UpdateCameraFOV();
+}
+
+void AFPSCharacter::SetADS(bool Val)
+{
+	bIsADS = Val;
+}
+
+void AFPSCharacter::OnRep_IsADS()
+{
+	ADS();
+}
+
+bool AFPSCharacter::getADS()
+{
+	return bIsADS;
+}
+
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
 
@@ -698,7 +753,6 @@ void AFPSCharacter::Tick(float DeltaTime)
 
 void AFPSCharacter::ServerTick(float DeltaTime)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Initial Slide Velocity: %f"), GetCharacterMovement()->Velocity.Size());
 
 	if (GetCharacterMovement()->Velocity.Size() < 200.0f || GroundSlope < -0.1f)
 	{
@@ -714,6 +768,13 @@ void AFPSCharacter::ServerTick(float DeltaTime)
 		}
 	}
 }
+
+void AFPSCharacter::StartADS(const FInputActionValue& InputActionValue)
+{
+		ServerSetADS(InputActionValue.Get<bool>());
+	
+}
+
 // Called to bind functionality to input
 void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -740,6 +801,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &AFPSCharacter::StartSprint);
 	PEI->BindAction(InputActions->InputJump, ETriggerEvent::Triggered, this, &ACharacter::Jump);
 	PEI->BindAction(InputActions->InputCrouch, ETriggerEvent::Triggered, this, &AFPSCharacter::StartCrouch);
+	PEI->BindAction(InputActions->InputADS, ETriggerEvent::Triggered, this, &AFPSCharacter::StartADS);
 
 }
 
@@ -963,5 +1025,6 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, bSprint);
 	DOREPLIFETIME(AFPSCharacter, bIsSliding);
 	DOREPLIFETIME(AFPSCharacter, SlideStartTime);
-	DOREPLIFETIME(AFPSCharacter, InitialSlideVelocity)
+	DOREPLIFETIME(AFPSCharacter, InitialSlideVelocity);
+	DOREPLIFETIME(AFPSCharacter, bIsADS);
 }
