@@ -111,4 +111,6 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	// Replicate MyReplicatedVariable to all clients
 	DOREPLIFETIME(AWeapon, Damage);
 	DOREPLIFETIME(AWeapon, bPickedUp);
+	DOREPLIFETIME(AWeapon, MaxVerticalRecoil);
+	DOREPLIFETIME(AWeapon, MaxHorizontalRecoil);
 }

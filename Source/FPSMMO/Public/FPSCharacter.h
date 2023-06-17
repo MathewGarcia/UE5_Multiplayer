@@ -283,6 +283,8 @@ protected:
 	UFUNCTION()
 		void OnRep_Sprint();
 
+	void ApplyRecoil();
+
 
 public:	
 	// Called every frame

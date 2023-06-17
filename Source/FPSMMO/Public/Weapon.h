@@ -50,6 +50,15 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void KillActor();
+
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float MaxVerticalRecoil;
+
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float MaxHorizontalRecoil;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		bool bIsAutomatic;
 protected:
 
 

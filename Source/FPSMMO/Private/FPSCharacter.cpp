@@ -213,6 +213,27 @@ void AFPSCharacter::OnRep_Sprint()
 	}
 }
 
+void AFPSCharacter::ApplyRecoil()
+{
+
+	if (CurrentWeapon)
+	{
+		FRotator Recoil = FRotator(FMath::FRandRange(-CurrentWeapon->MaxVerticalRecoil, CurrentWeapon->MaxVerticalRecoil),
+			FMath::FRandRange(CurrentWeapon->MaxHorizontalRecoil, CurrentWeapon->MaxHorizontalRecoil), 0);
+
+
+		if (Controller)
+		{
+			FRotator NewControlRotation = Controller->GetControlRotation() + Recoil;
+			Controller->SetControlRotation(NewControlRotation);
+
+		}
+	
+	}
+	
+
+}
+
 void AFPSCharacter::ServerStartSprint_Implementation()
 {
 	if (!bSprint) {
@@ -830,6 +851,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputMove, ETriggerEvent::Triggered, this, &AFPSCharacter::Move);
 	PEI->BindAction(InputActions->InputLook, ETriggerEvent::Triggered, this, &AFPSCharacter::Look);
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
+	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Completed, this, &AFPSCharacter::StopFire);
 	PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Triggered, this, &AFPSCharacter::Interact);
 	PEI->BindAction(InputActions->InputSwapWeapons, ETriggerEvent::Triggered, this, &AFPSCharacter::WeaponSwap);
 	PEI->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &AFPSCharacter::StartSprint);
@@ -843,29 +865,41 @@ void AFPSCharacter::StartFire(const FInputActionValue& Val)
 {
 	if (bCanFire) {
 		if (CurrentWeapon) {
-			bCanFire = false;
-			// Set a timer to allow firing again
-			GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, CurrentWeapon->FireRate, false);
+			bCanFire = false;  // Disallow firing
+
+			// Fire projectile and apply recoil
 			SpawnProjectile();
+			ApplyRecoil();
+
+			// Only set a timer for automatic weapons
+			if (CurrentWeapon->bIsAutomatic) {
+				GetWorld()->GetTimerManager().SetTimer(FireTimerHandle, this, &AFPSCharacter::ResetFire, CurrentWeapon->FireRate, false);
+			}
 		}
 	}
-	
-	
 }
 
 void AFPSCharacter::StopFire()
 {
-	// Clear the fire timer
-	GetWorld()->GetTimerManager().ClearTimer(FireTimerHandle);
+	if (CurrentWeapon && CurrentWeapon->bIsAutomatic) {
+		// For automatic weapons, clear the fire timer when the button is released
+		GetWorld()->GetTimerManager().ClearTimer(FireTimerHandle);
 
-	// Reset the firing flag
-	bCanFire = true;
+		// And immediately allow firing again
+		bCanFire = true;
+	}
+	else if (CurrentWeapon) {
+		// For non-automatic weapons, reset fire immediately when the button is released
+		ResetFire();
+	}
 }
 
 void AFPSCharacter::ResetFire()
 {
-	StopFire();
+	// Allow firing again when the timer expires, regardless of whether the weapon is automatic or not
+	bCanFire = true;
 }
+
 
 float AFPSCharacter::GetHealth()
 {
