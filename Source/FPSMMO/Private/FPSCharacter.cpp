@@ -541,6 +541,17 @@ void AFPSCharacter::UpdateWeaponTransform(float DeltaTime)
 	}
 }
 
+bool AFPSCharacter::CanFire()
+{
+	if (CurrentWeapon && CurrentWeapon->AmmoInClip != 0 && bCanFire)
+	{
+		return true;
+	}
+
+	return false;
+	
+}
+
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
 
@@ -863,12 +874,13 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 
 void AFPSCharacter::StartFire(const FInputActionValue& Val)
 {
-	if (bCanFire) {
+	if (CanFire()) {
 		if (CurrentWeapon) {
 			bCanFire = false;  // Disallow firing
 
 			// Fire projectile and apply recoil
 			SpawnProjectile();
+			CurrentWeapon->AmmoInClip = FMath::Clamp(CurrentWeapon->AmmoInClip - 1, 0, CurrentWeapon->MaxAmmoInClip);
 			ApplyRecoil();
 
 			// Only set a timer for automatic weapons

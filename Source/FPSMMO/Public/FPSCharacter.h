@@ -167,6 +167,8 @@ public:
 
 	void UpdateWeaponTransform(float DeltaTime);
 
+	bool CanFire();
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
 		FTransform ADSWeaponTransform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(1, 1, 1));

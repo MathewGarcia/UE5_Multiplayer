@@ -59,6 +59,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		bool bIsAutomatic;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		int AmmoInClip;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		int MaxAmmo;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		int MaxAmmoInClip;
+
 protected:
 
 
