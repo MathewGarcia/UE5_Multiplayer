@@ -2,7 +2,6 @@
 
 
 #include "Weapon.h"
-
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
 #include "Components/BoxComponent.h"
@@ -12,7 +11,7 @@ AWeapon::AWeapon()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
+	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetupAttachment(RootComponent);
 	SetReplicates(true);
@@ -21,6 +20,7 @@ AWeapon::AWeapon()
 	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComp"));
 	BoxCollision->SetupAttachment(WeaponMesh);
 
+	bReplicates = true;
 	bPickedUp = false;
 }
 
@@ -82,6 +82,11 @@ void AWeapon::KillActor_Implementation()
 	Destroy();
 }
 
+void AWeapon::ResetReload()
+{
+	bIsReloading = false;
+}
+
 // Called when the game starts or when spawned
 void AWeapon::BeginPlay()
 {
@@ -104,6 +109,80 @@ void AWeapon::Tick(float DeltaTime)
 	}
 
 }
+
+void AWeapon::ServerResetReload_Implementation()
+{
+	ResetReload();
+}
+
+bool AWeapon::ServerResetReload_Validate()
+{
+	return true;
+}
+
+void AWeapon::OnRep_Reloading()
+{
+	
+}
+
+void AWeapon::ServerStartReload_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("ServerStartReload called"));
+
+	MulticastStartReload();
+}
+
+bool AWeapon::ServerStartReload_Validate()
+{
+	return true;
+}
+
+void AWeapon::MulticastStartReload_Implementation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("MulticastStartReload called"));
+
+	StartReload();
+}
+
+bool AWeapon::MulticastStartReload_Validate()
+{
+	return true;
+}
+
+void AWeapon::StartReload()
+{
+
+	UE_LOG(LogTemp, Warning, TEXT("StartReload called"));
+	if (!HasAuthority())
+		return;
+
+	if (bIsReloading || AmmoInClip == MaxAmmoInClip)
+	{
+		// Already reloading or clip is full
+		return;
+	}
+
+	bIsReloading = true;
+	// Calculate how much ammo we need to fill the clip
+	int AmmoNeeded = MaxAmmoInClip - AmmoInClip;
+
+	// Calculate how much ammo to actually move from reserves to the clip
+	int AmmoToMove = FMath::Min(AmmoNeeded, MaxAmmo);
+
+	// Adjust ammo counts
+	AmmoInClip += AmmoToMove;
+	MaxAmmo -= AmmoToMove;
+
+	// Clear the existing timer if it is already running
+	if (GetWorld()->GetTimerManager().IsTimerActive(ReloadTimer))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ReloadTimer);
+	}
+
+	GetWorld()->GetTimerManager().SetTimer(ReloadTimer, this, &AWeapon::ServerResetReload, ReloadSpeed, false);
+}
+
+
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -113,4 +192,9 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, bPickedUp);
 	DOREPLIFETIME(AWeapon, MaxVerticalRecoil);
 	DOREPLIFETIME(AWeapon, MaxHorizontalRecoil);
+	DOREPLIFETIME(AWeapon, AmmoInClip);
+	DOREPLIFETIME(AWeapon, MaxAmmo);
+	DOREPLIFETIME(AWeapon,MaxAmmoInClip);
+	DOREPLIFETIME(AWeapon, bIsReloading);
+	DOREPLIFETIME(AWeapon, bIsAttached);
 }

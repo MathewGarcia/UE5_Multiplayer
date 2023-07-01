@@ -54,6 +54,10 @@ public:
 	void UpdateGold(int gold);
 
 	int Gold;
+
+	void SetPlayerController(APlayerController* Controller);
+
+	APlayerController* PC;
 protected:
 
 	UPROPERTY(EditAnywhere,ReplicatedUsing = OnRep_Level, Category = "PlayerInfo")
@@ -78,6 +82,8 @@ protected:
 		virtual void BeginPlay() override;
 
 	virtual void Tick(float DeltaSeconds) override;
+
+
 public:
 	UFUNCTION()
 	void OnRep_Level();

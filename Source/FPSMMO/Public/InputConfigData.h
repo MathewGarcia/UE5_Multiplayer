@@ -42,4 +42,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputADS;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputReload;
 };

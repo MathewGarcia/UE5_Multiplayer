@@ -174,3 +174,8 @@ void APlayerInfoState::OnRep_InCombat()
 	UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
 
 }
+
+void APlayerInfoState::SetPlayerController(APlayerController* Controller)
+{
+	PC = Controller;
+}

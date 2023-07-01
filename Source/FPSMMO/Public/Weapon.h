@@ -26,8 +26,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "WeaponInfo")
 		float WeaponDistance;
 
-	UPROPERTY(EditAnywhere, Category = "WeaponMesh")
-	class UStaticMeshComponent* WeaponMesh;
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponMesh")
+	class USkeletalMeshComponent* WeaponMesh;
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Weapon")
 		float FireRate;
@@ -40,6 +40,7 @@ public:
 
 	void SetPickUp(bool isPickedUp);
 
+	UPROPERTY(Replicated)
 	bool bIsAttached = false;
 
 	UFUNCTION()
@@ -60,12 +61,44 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		bool bIsAutomatic;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		int AmmoInClip;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		int MaxAmmo;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		int MaxAmmoInClip;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Reloading,EditAnywhere,BlueprintReadWrite, Category = "Weapon")
+		bool bIsReloading;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerResetReload();
+
+	UFUNCTION()
+		void OnRep_Reloading();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerStartReload();
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+		void MulticastStartReload();
+
+
+	void StartReload();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FTimerHandle ReloadTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float ReloadSpeed;
+
+	void ResetReload();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
+		bool bIsShotgun;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
+		int ShotgunPellets;
 
 protected:
 
@@ -82,5 +115,4 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
 };

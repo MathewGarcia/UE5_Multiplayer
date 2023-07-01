@@ -8,7 +8,8 @@
 AFPSPlayerController::AFPSPlayerController()
 {
 
-
+	SetReplicates(true);
+	bReplicates = true;
 }
 
 

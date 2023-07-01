@@ -16,13 +16,14 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 
+
 UCLASS()
 class FPSMMO_API AFPSCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, Category = "Player Mesh")
-		UStaticMeshComponent* playerMeshTest;
+		USkeletalMeshComponent* thirdPersonPlayerMesh;
 public:
 	// Sets default values for this character's properties
 	AFPSCharacter();
@@ -37,6 +38,15 @@ public:
 	void StartFire(const FInputActionValue& Val);
 	void StopFire();
 	void ResetFire();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerStartFire(FTransform SocketTransform);
+	void ServerStartFire_Implementation(FTransform SocketTransform);
+	bool ServerStartFire_Validate(FTransform SocketTransform);
+
+
+
+	void Fire(FTransform SocketTransform);
 
 	float MaxShield;
 
@@ -60,10 +70,6 @@ public:
 
 	class APlayerHUD* GetPlayerHUD();
 
-	UFUNCTION(BlueprintCallable, Category = "Health")
-		float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-
-
 	UPROPERTY()
 		UpHUD* HUDWidget;
 
@@ -81,6 +87,8 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerStartSprint();
+
+	
 
 	void SetSprint(bool &bSprintVal, bool Val);
 
@@ -163,11 +171,14 @@ public:
 	UFUNCTION()
 	void OnRep_IsADS();
 
+	UFUNCTION(BlueprintCallable, Category = "ADS")
 	bool getADS();
 
 	void UpdateWeaponTransform(float DeltaTime);
 
 	bool CanFire();
+
+	void StartReload(const FInputActionValue& InputActionValue);
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
@@ -179,6 +190,12 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
 		float ADSInterpSpeed;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+		TSubclassOf<AWeapon> SpawningWeapon;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Slide")
+		float GroundSlope;
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -186,7 +203,6 @@ private:
 
 	float MinimumSlideSpeed = 1500.0f;
 
-	float GroundSlope;
 
 	float DefaultFOV;
 
@@ -196,16 +212,20 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
+		virtual float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+
 	// First-person camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 		class UCameraComponent* FPSCameraComponent;
 
-	UPROPERTY(EditAnywhere, Category = "WeaponMesh")
-		class UStaticMeshComponent* WeaponMesh;
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponMesh")
+		class USkeletalMeshComponent* WeaponMesh;
 
 	// First-person mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
-		class USkeletalMeshComponent* FPSMeshComponent;
+		class USkeletalMeshComponent* FPSMeshArms;
 
 	// Projectile class to spawn
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
@@ -256,14 +276,14 @@ protected:
 	UPROPERTY()
 		AFPSPlayerController* FPSPC;
 
-	UFUNCTION(Server, Reliable)
-		void HandleFire();
-
-	UFUNCTION(Server, Reliable)
-		void SpawnProjectile();
+	UFUNCTION(NetMulticast, Reliable)
+		void SpawnProjectile(FVector SpawnLocation, FRotator SpawnRotation);
+		void SpawnProjectile_Implementation(FVector SpawnLocation, FRotator SpawnRotation);
+		
 
 	AProjectile* Projectile;
 
+	FTransform GetFiringPosition();
 	void KilledBy(AController* EventInstigator);
 
 	void Interact();
@@ -286,6 +306,14 @@ protected:
 		void OnRep_Sprint();
 
 	void ApplyRecoil();
+
+	void HandleReloadProgress(float DeltaTime);
+
+	float ReloadProgress = 0.0f;
+
+	FRotator NormalWeaponRotation;
+	UPROPERTY(EditAnywhere, Category = "Weapon Info")
+	FRotator WeaponTargetRotation;
 
 
 public:	

@@ -27,6 +27,11 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Damage")
 		TSubclassOf<class UDamageType> DamageType;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bullet Info")
+		float SpeedDecreaseRate;
+
+	UProjectileMovementComponent* GetProjectileMovement();
 	
 protected:
 	// Called when the game starts or when spawned
