@@ -170,7 +170,6 @@ void AFPSCharacter::WeaponSwap(const FInputActionValue& Value)
 {
 	float Val = Value.Get<float>();
 	//call Swap function
-	UE_LOG(LogTemp, Warning, TEXT("Direciton: %f"), Val);
 	SwitchWeapon(Val);
 	
 }
@@ -180,22 +179,20 @@ void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 		if (Direction > 0)
 		{
 			//this means we're going up
-			if (ClientWeapons.Num() > 1)
+			if (EquippedWeapons.Num() > 1)
 			{
-				if (CurrentWeapon != ClientWeapons[1]) {
-					PreviousWeapon = ClientWeapons[0];
-					UseWeapon(ClientWeapons[1]);
-					OnRep_CurrentWeapon();
+				if (CurrentWeapon != EquippedWeapons[1]) {
+					PreviousWeapon = EquippedWeapons[0];
+					UseWeapon(EquippedWeapons[1]);
 				}
 			}
 		}
 		else
 		{
-			if (ClientWeapons.Num() > 1) {
-				if (CurrentWeapon != ClientWeapons[0]) {
-					PreviousWeapon = ClientWeapons[1];
-					UseWeapon(ClientWeapons[0]);
-					OnRep_CurrentWeapon();
+			if (EquippedWeapons.Num() > 1) {
+				if (CurrentWeapon != EquippedWeapons[0]) {
+					PreviousWeapon = EquippedWeapons[1];
+					UseWeapon(EquippedWeapons[0]);
 				}
 			}
 
@@ -251,6 +248,28 @@ void AFPSCharacter::ServerStartSprint_Implementation()
 bool AFPSCharacter::ServerStartSprint_Validate()
 {
 	return true;
+}
+
+AWeapon* AFPSCharacter::FindWeaponInOverlap(AWeapon*WeaponToEquip)
+{
+	TArray<AActor*> OverlappingActors;
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic)); // ECC_GameTraceChannel1 as an example
+	float radius = 100.f;
+	UKismetSystemLibrary::SphereOverlapActors(GetWorld(), GetActorLocation(), radius , ObjectTypes, AWeapon::StaticClass(), TArray<AActor*>(), OverlappingActors);
+
+	for (AActor* Actor : OverlappingActors)
+	{
+		AWeapon* Weapon = Cast<AWeapon>(Actor);
+
+		if (Weapon && Weapon == WeaponToEquip)
+		{
+			return Weapon;
+		}
+	}
+
+	// Return nullptr if no matching weapon is found.
+	return nullptr;
 }
 
 void AFPSCharacter::SetSprint(bool &bSprintVal, bool Val)
@@ -438,27 +457,38 @@ void AFPSCharacter::PerformSlide(float DeltaTime)
 {
 	GetCharacterMovement()->Velocity = GetCharacterMovement()->Velocity.GetSafeNormal() * 1500.0f;
 
+	// Get ground slope
 	FHitResult Hit;
 	FVector StartTrace = GetActorLocation();
-	FVector EndTrace = StartTrace + FVector(0.f, 0.f, -1000.f); // 200 is an arbitrary value
+	FVector EndTrace = StartTrace - FVector(0.f, 0.f, 200.f); // 200 is an arbitrary value
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
-	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, ECC_WorldStatic, QueryParams);
-
+	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, ECC_Visibility, QueryParams);
 
 	GroundSlope = FVector::DotProduct(Hit.ImpactNormal, InitialSlideVelocity.GetSafeNormal());
-
-	DrawDebugLine(GetWorld(), StartTrace, EndTrace, FColor::Blue, true, 1,0,2);
 
 	// Decrease speed due to friction
 	float Friction = 200.0f; // adjust this value as necessary
 	InitialSlideVelocity -= Friction * DeltaTime * InitialSlideVelocity.GetSafeNormal();
+	// Calculate the slide direction
+	FVector Down = -GetActorUpVector();
+	FVector Right = FVector::CrossProduct(Down, Hit.ImpactNormal);
+	FVector SlideDirection;
+	if (FMath::Abs(GroundSlope) < 0.01f)  // Adjust the threshold as necessary
+	{
+		SlideDirection = InitialSlideVelocity.GetSafeNormal();
+	}
+	else
+	{
+		SlideDirection = FVector::CrossProduct(Hit.ImpactNormal, Right).GetSafeNormal();
+	}
 
-	FVector SlideDirection = InitialSlideVelocity.GetSafeNormal();
+
 	float CurrentSlideSpeed = GroundSlope * InitialSlideVelocity.Size() * 10;
 	float NewSlideSpeed = FMath::Max(MinimumSlideSpeed, CurrentSlideSpeed);
 	GetCharacterMovement()->Velocity = SlideDirection * NewSlideSpeed;
 }
+
 
 void AFPSCharacter::ServerSetADS_Implementation(bool NewADS)
 {
@@ -574,6 +604,43 @@ void AFPSCharacter::StartReload(const FInputActionValue& InputActionValue)
 	}
 }
 
+void AFPSCharacter::ServerDropWeapon_Implementation(AWeapon* DroppedWeapon)
+{
+	MulticastDropWeapon(DroppedWeapon);
+}
+
+bool AFPSCharacter::ServerDropWeapon_Validate(AWeapon* DroppedWeapon)
+{
+	return true;
+}
+
+void AFPSCharacter::MulticastDropWeapon_Implementation(AWeapon* DroppedWeapon)
+{
+	FVector DropDirection = GetActorForwardVector();
+
+	FVector DropLocation = GetActorLocation() + DropDirection * 10.0f; // 5 feet forward. Adjust this multiplier as per your requirement.
+
+	FVector TraceEnd = DropLocation - FVector(0, 0, 500.0f); // 500 units down.
+
+	FCollisionQueryParams QueryParams;
+
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.bTraceComplex = true;
+
+	FHitResult Hit;
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, DropLocation, TraceEnd, ECC_Visibility))
+	{
+
+		DroppedWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+		DroppedWeapon->bIsAttached = false;
+		DroppedWeapon->SetActorLocation(Hit.Location);
+		DroppedWeapon->ServerSetPickUp(false);
+	}
+
+	DrawDebugLine(GetWorld(), DropLocation, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
+}
+
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
 
@@ -593,12 +660,11 @@ void AFPSCharacter::BeginPlay()
 
 	bCanFire = true;
 
-	if (SpawningWeapon) {
+	if (SpawningWeapon && HasAuthority()) {
 			// Create an instance of the weapon object
 			AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(SpawningWeapon);
-			Weapon->SetPickUp(true);
+			Weapon->SetActorLocation(GetActorLocation());
 			EquipWeapon(Weapon);
-			OnRep_CurrentWeapon();
 	}
 	
 
@@ -659,34 +725,20 @@ void AFPSCharacter::OnRep_Shield()
 
 void AFPSCharacter::OnRep_PreviousWeapon()
 {
-	if (ClientWeapons.Num() > 2) {
-		if (CurrentWeapon == ClientWeapons[1])
+	if (EquippedWeapons.Num() > 2) {
+		if (CurrentWeapon == EquippedWeapons[1])
 		{
-			PreviousWeapon = ClientWeapons[0];
+			PreviousWeapon = EquippedWeapons[0];
 		}
 		else
 		{
-			PreviousWeapon = ClientWeapons[1];
+			PreviousWeapon = EquippedWeapons[1];
 		}
 	}
-	else if(!ClientWeapons.IsEmpty())
+	else if(!EquippedWeapons.IsEmpty())
 	{
-		PreviousWeapon = ClientWeapons[0];
+		PreviousWeapon = EquippedWeapons[0];
 	}
-}
-
-void AFPSCharacter::OnRep_EquippedWeapons()
-{
-	UpdateEquippedWeapons();
-}
-
-void AFPSCharacter::UpdateEquippedWeapons()
-{
-	ClientWeapons = EquippedWeapons;
-
-	if(!CurrentWeapon)
-	CurrentWeapon = EquippedWeapons.Num() > 0 ? EquippedWeapons[0] : nullptr;
-
 }
 
 void AFPSCharacter::OnRep_CurrentWeapon()
@@ -694,40 +746,43 @@ void AFPSCharacter::OnRep_CurrentWeapon()
 			if (!PreviousWeapon) {
 				OnRep_PreviousWeapon();
 			}
+			if (PreviousWeapon) {
 
-			PreviousWeapon->SetActorHiddenInGame(true);
+				PreviousWeapon->SetActorHiddenInGame(true);
+			}
 
-		if (!CurrentWeapon)
-		{
-			if (ClientWeapons.Num() > 2) {
-				if (PreviousWeapon == ClientWeapons[0])
-				{
-					CurrentWeapon = ClientWeapons[1];
+			if (!CurrentWeapon)
+			{
+				if (EquippedWeapons.Num() > 2) {
+					if (PreviousWeapon == EquippedWeapons[0])
+					{
+						CurrentWeapon = EquippedWeapons[1];
+					}
+					else
+					{
+						CurrentWeapon = EquippedWeapons[0];
+					}
 				}
 				else
 				{
-					CurrentWeapon = ClientWeapons[0];
+					CurrentWeapon = EquippedWeapons[0];
 				}
 			}
-			else
-			{
-				CurrentWeapon = ClientWeapons[0];
-			}
-		}
 
 		if (CurrentWeapon) {
 			//if the current weapon is not attached to the player
 			if (!CurrentWeapon->bIsAttached) {
 				CurrentWeapon->AttachToComponent(thirdPersonPlayerMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
 				CurrentWeapon->bIsAttached = true;
-				CurrentWeapon->SetOwner(this);
-				CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
 			}
 			//hide previous weapon?
 			//update mesh?
 			CurrentWeapon->SetActorHiddenInGame(false);
+
 			if (IsLocallyControlled())
 			{
+				CurrentWeapon->SetOwner(this);
+				CurrentWeapon->WeaponMesh->SetOwnerNoSee(true);
 				WeaponMesh->SetSkinnedAssetAndUpdate(Cast<USkinnedAsset>(CurrentWeapon->WeaponMesh->GetSkinnedAsset()));
 				WeaponMesh->AttachToComponent(FPSMeshArms, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
 				
@@ -815,10 +870,15 @@ void AFPSCharacter::HandleInteract_Implementation()
 		{
 			//add the weapon to the equip
 			if (WeaponCollided) {
-				WeaponCollided->SetActorHiddenInGame(true);
-				WeaponCollided->SetPickUp(true);
 				EquipWeapon(WeaponCollided);
-			}
+				}
+		}
+	}
+	else
+	{
+		if (bInCollision) {
+			if (WeaponCollided)
+				ServerEquipWeapon(WeaponCollided);
 		}
 	}
 }
@@ -1033,74 +1093,50 @@ void AFPSCharacter::UpdateShield(float SP)
 	}
 }
 
+void AFPSCharacter::EquipWeaponOnServer(AWeapon* Weapon)
+{
+	if (Weapon != nullptr) {
+		//Weapon->SetOwner(this);
+
+		// If we have less than 2 weapons, just add the new weapon to the array
+		if (EquippedWeapons.Num() < 2)
+		{
+			EquippedWeapons.Add(Weapon);
+		}
+		else
+		{
+			// We already have two weapons. Drop the current one and replace it with the new one.
+			int32 CurrentWeaponIndex = EquippedWeapons.IndexOfByKey(CurrentWeapon);
+
+			if (HasAuthority()) {
+				MulticastDropWeapon(CurrentWeapon);
+			}
+			else {
+				ServerDropWeapon(CurrentWeapon);
+			}
+
+			// Replace the current weapon in the array with the new weapon
+			EquippedWeapons[CurrentWeaponIndex] = Weapon;
+		}
+
+		// Now use the weapon
+		UseWeapon(Weapon);
+		MulticastOnWeaponEquipped(Weapon);
+	}
+}
+
 void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 {
-	if (WeaponToEquip != nullptr) {
-		//if we dont have max weapons, add it to the equipped weapons.
-
-			if (EquippedWeapons.Num() > 0 && EquippedWeapons.Num() < 2) {
-				if (EquippedWeapons[0] == nullptr)
-				{
-					EquippedWeapons[0] = WeaponToEquip;
-				}
-				else {
-					EquippedWeapons.Add(WeaponToEquip);
-				}
-			}
-			else if(EquippedWeapons.IsEmpty())
-			{
-				EquippedWeapons.Add(WeaponToEquip);
-			}
-			//else we want to replace the current weapon with the new weapon
-			else
-			{
-
-				//TODO:we want to drop the weapon 5ft away from the player towards the ground.
-				AWeapon* DroppedWeapon = CurrentWeapon;
-				FVector DropDirection = GetActorForwardVector();
-
-				FVector DropLocation = GetActorLocation() + DropDirection * 5.0f; // 5 feet forward. Adjust this multiplier as per your requirement.
-
-				FVector TraceEnd = DropLocation - FVector(0, 0, 500.0f); // 500 units down.
-
-				FCollisionQueryParams QueryParams;
-
-				QueryParams.AddIgnoredActor(this);
-				QueryParams.bTraceComplex = true;
-
-				FHitResult Hit;
-
-				if(GetWorld()->LineTraceSingleByChannel(Hit, DropLocation, TraceEnd, ECC_Visibility))
-				{
-
-					DroppedWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-					DroppedWeapon->SetActorLocation(Hit.Location);
-					DroppedWeapon->SetPickUp(false);
-
-
-					UE_LOG(LogTemp, Warning, TEXT("Hit: %s"), *Hit.GetActor()->GetName());
-				}
-
-				DrawDebugLine(GetWorld(), DropLocation, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
-
-
-
-				if(CurrentWeapon == EquippedWeapons[0])
-				{
-					EquippedWeapons[0] = WeaponToEquip;
-				}
-				else
-				{
-					EquippedWeapons[1] = WeaponToEquip;
-				}
-				UseWeapon(WeaponToEquip);
-			}
-
-			OnRep_EquippedWeapons();
-
+	if(HasAuthority())
+	{
+	EquipWeaponOnServer(WeaponToEquip);
 	}
-	
+	else
+	{
+		ServerEquipWeapon(WeaponToEquip);
+	}
 }
+
 
 
 
@@ -1111,6 +1147,31 @@ void AFPSCharacter::UseWeapon(AWeapon* Weapon)
 		OnRep_CurrentWeapon();
 	}
 
+}
+
+void AFPSCharacter::ServerEquipWeapon_Implementation(AWeapon* WeaponToEquip)
+{
+	EquipWeaponOnServer(WeaponToEquip);
+}
+
+bool AFPSCharacter::ServerEquipWeapon_Validate(AWeapon* WeaponToEquip)
+{
+	return true;
+}
+
+
+void AFPSCharacter::MulticastOnWeaponEquipped_Implementation(AWeapon* WeaponToEquip)
+{
+	if (WeaponToEquip) {
+		WeaponToEquip->SetOwner(this);
+		if (!HasAuthority() && IsLocallyControlled()) {
+			WeaponToEquip->ServerSetPickUp(true);
+		}
+		else
+		{
+			WeaponToEquip->SetPickUp(true);
+		}
+	}
 }
 
 void AFPSCharacter::SetClientSideWeapon(AWeapon* Weapon)
@@ -1190,4 +1251,5 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, SlideStartTime);
 	DOREPLIFETIME(AFPSCharacter, InitialSlideVelocity);
 	DOREPLIFETIME(AFPSCharacter, bIsADS);
+	DOREPLIFETIME(AFPSCharacter, WeaponCollided);
 }

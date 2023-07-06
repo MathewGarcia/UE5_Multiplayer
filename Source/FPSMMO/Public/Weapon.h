@@ -18,6 +18,7 @@ public:
 	AWeapon();
 
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collision")
 	UBoxComponent* BoxCollision;
 
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
@@ -82,6 +83,12 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
 		void MulticastStartReload();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetPickUp(bool bSetPickUp);
+		void ServerSetPickUp_Implementation(bool bSetPickUp);
+		bool ServerSetPickUp_Validate(bool bSetPickUp);
+
 
 
 	void StartReload();

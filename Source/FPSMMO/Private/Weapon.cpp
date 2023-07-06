@@ -11,22 +11,34 @@ AWeapon::AWeapon()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+	SetReplicateMovement(true);
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetupAttachment(RootComponent);
-	SetReplicates(true);
 	WeaponMesh->SetOwnerNoSee(true);
 
 	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComp"));
 	BoxCollision->SetupAttachment(WeaponMesh);
+	BoxCollision->SetRelativeScale3D(FVector(30, 30, 30));
+	BoxCollision->SetVisibility(true);
+	BoxCollision->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	BoxCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	BoxCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	BoxCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	BoxCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Overlap);
+	BoxCollision->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECollisionResponse::ECR_Overlap);
+	BoxCollision->SetGenerateOverlapEvents(true);
 
-	bReplicates = true;
+
 	bPickedUp = false;
 }
 
 void AWeapon::OnRep_PickedUp()
 {
-	SetPickUp(bPickedUp);
+	BoxCollision->SetGenerateOverlapEvents(!bPickedUp);
+	SetActorHiddenInGame(bPickedUp);
+	if(!bPickedUp)
+		SetOwner(nullptr);
 }
 
 bool AWeapon::GetPickedUp()
@@ -36,8 +48,10 @@ bool AWeapon::GetPickedUp()
 
 void AWeapon::SetPickUp(bool isPickedUp)
 {
-	if(GetLocalRole() == ROLE_Authority)
 	bPickedUp = isPickedUp;
+	BoxCollision->SetGenerateOverlapEvents(!bPickedUp);
+	if(!bPickedUp)
+	SetOwner(nullptr);
 }
 
 void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
@@ -103,11 +117,6 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if(bPickedUp)
-	{
-		BoxCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-
 }
 
 void AWeapon::ServerResetReload_Implementation()
@@ -122,7 +131,16 @@ bool AWeapon::ServerResetReload_Validate()
 
 void AWeapon::OnRep_Reloading()
 {
-	
+}
+
+void AWeapon::ServerSetPickUp_Implementation(bool bSetPickUp)
+{
+	SetPickUp(bSetPickUp);
+}
+
+bool AWeapon::ServerSetPickUp_Validate(bool bSetPickUp)
+{
+	return true;
 }
 
 void AWeapon::ServerStartReload_Implementation()

@@ -60,8 +60,16 @@ public:
 	void UpdateHealth();
 	void UpdateShield(float SP);
 
+	void EquipWeaponOnServer(AWeapon* Weapon);
 	void EquipWeapon(AWeapon* WeaponToEquip);
 	void UseWeapon(AWeapon* WeaponToUse);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerEquipWeapon(AWeapon* WeaponToEquip);
+
+	UFUNCTION(NetMulticast, Reliable)
+		void MulticastOnWeaponEquipped(AWeapon* WeaponToEquip);
+
 
 	//possibly save for later?
 	void SetClientSideWeapon(AWeapon* Weapon);
@@ -78,6 +86,7 @@ public:
 	//weapon pick up
 	bool bInCollision;
 
+	UPROPERTY(Replicated)
 	AWeapon* WeaponCollided;
 
 	void WeaponSwap(const FInputActionValue& Value);
@@ -88,6 +97,7 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerStartSprint();
 
+	AWeapon* FindWeaponInOverlap(AWeapon* WeaponToEquip);
 	
 
 	void SetSprint(bool &bSprintVal, bool Val);
@@ -180,6 +190,15 @@ public:
 
 	void StartReload(const FInputActionValue& InputActionValue);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerDropWeapon(AWeapon* DroppedWeapon);
+		void ServerDropWeapon_Implementation(AWeapon* DroppedWeapon);
+		bool ServerDropWeapon_Validate(AWeapon* DroppedWeapon);
+
+		UFUNCTION(NetMulticast, Reliable)
+			void MulticastDropWeapon(AWeapon* DroppedWeapon);
+			void MulticastDropWeapon_Implementation(AWeapon* DroppedWeapon);
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
 		FTransform ADSWeaponTransform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(1, 1, 1));
@@ -253,16 +272,9 @@ protected:
 	UFUNCTION()
 	void OnRep_PreviousWeapon();
 
-	UPROPERTY(VisibleAnywhere,ReplicatedUsing=OnRep_EquippedWeapons,BlueprintReadOnly, Category = "Weapons")
+	UPROPERTY(VisibleAnywhere,Replicated,BlueprintReadOnly, Category = "Weapons")
 		TArray<AWeapon*> EquippedWeapons;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapons")
-	TArray<AWeapon*> ClientWeapons;
-
-	UFUNCTION()
-		void OnRep_EquippedWeapons();
-
-	void UpdateEquippedWeapons();
 
 	AWeapon* WeapToEquip;
 
