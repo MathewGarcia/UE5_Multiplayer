@@ -1014,7 +1014,8 @@ void AFPSCharacter::ResetFire()
 
 void AFPSCharacter::Fire(FTransform SocketTransform)
 {
-	if (bIsADS && FPSPC->IsLocalPlayerController())
+	//or statement may be redundant as it is never checked.
+	if (bIsADS)
 	{
 		// Get the socket location
 		FVector SocketLocation = SocketTransform.GetLocation();
