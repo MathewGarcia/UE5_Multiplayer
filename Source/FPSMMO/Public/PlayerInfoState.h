@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerState.h"
 #include "PlayerInfoState.generated.h"
 
+enum class ETeam : uint8;
 class AFPSCharacter;
 /**
  * 
@@ -16,6 +17,10 @@ class FPSMMO_API APlayerInfoState : public APlayerState
 	GENERATED_BODY()
 
 public:
+
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Team")
+		ETeam TeamId;
+
 	APlayerInfoState();
 
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")

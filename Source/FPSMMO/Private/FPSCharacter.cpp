@@ -21,7 +21,9 @@
 #include "EnhancedInputComponent.h"
 #include "InputConfigData.h"
 #include "DrawDebugHelpers.h"
-#include "PlayerCharacterMovementComponent.h"
+#include "InputMappingContext.h"
+#include "GameFramework/InputSettings.h"
+
 
 // Sets default values
 AFPSCharacter::AFPSCharacter()
@@ -215,24 +217,16 @@ void AFPSCharacter::OnRep_Sprint()
 
 void AFPSCharacter::ApplyRecoil()
 {
-
 	if (CurrentWeapon)
 	{
-		FRotator Recoil = FRotator(FMath::FRandRange(-CurrentWeapon->MaxVerticalRecoil, CurrentWeapon->MaxVerticalRecoil),
-			FMath::FRandRange(CurrentWeapon->MaxHorizontalRecoil, CurrentWeapon->MaxHorizontalRecoil), 0);
+		CurrentWeapon->CurrentRecoil = FRotator(FMath::FRandRange(0, CurrentWeapon->MaxVerticalRecoil),
+			FMath::FRandRange(-CurrentWeapon->MaxHorizontalRecoil, CurrentWeapon->MaxHorizontalRecoil), 0);
 
-
-		if (Controller)
-		{
-			FRotator NewControlRotation = Controller->GetControlRotation() + Recoil;
-			Controller->SetControlRotation(NewControlRotation);
-
-		}
-	
+		TargetControllerRecoil = FMath::FRandRange(-CurrentWeapon->MaxVerticalRecoil, 0);
 	}
-	
-
 }
+
+
 
 void AFPSCharacter::ServerStartSprint_Implementation()
 {
@@ -294,12 +288,11 @@ void AFPSCharacter::StartSprint()
 void AFPSCharacter::StartCrouch()
 {
 
-	 
+
 		 if (!bIsCrouched) {
 			 if (CanSlide())
 			 {
-				 UE_LOG(LogTemp, Warning, TEXT("Attempting to slide!"));
-				if(HasAuthority())
+			 	if(HasAuthority())
 				{
 					SetSliding(true);
 				}
@@ -641,6 +634,34 @@ void AFPSCharacter::MulticastDropWeapon_Implementation(AWeapon* DroppedWeapon)
 	DrawDebugLine(GetWorld(), DropLocation, TraceEnd, FColor::White, false, 1.0f, 0, 1.0f);
 }
 
+void AFPSCharacter::SetCanPlant(bool bCanPlant)
+{
+	CanPlant = bCanPlant;
+}
+
+bool AFPSCharacter::GetCanPlant()
+{
+	return CanPlant;
+}
+
+FString AFPSCharacter::GetKey(const FString& ActionName)
+{
+	if (InputMapping) {
+
+		const TArray<FEnhancedActionKeyMapping>& Mappings = InputMapping->GetMappings();
+
+		for (const FEnhancedActionKeyMapping& Mapping : Mappings)
+		{
+			if(Mapping.Action->GetFName() == FName(*ActionName))
+			{
+				return Mapping.Key.ToString();
+			}
+		}
+	}
+
+	return FString();
+}
+
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
 
@@ -803,7 +824,10 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 	if (CurrentWeapon) {
 		if (AProjectile* bullet = GetWorld()->SpawnActor<AProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, spawnParameters))
 		{
-
+			if (CurrentWeapon->bIsShotgun)
+			{
+				bullet->bIsShotgunPellet = true;
+			}
 			UPrimitiveComponent* BulletPrimitive = Cast<UPrimitiveComponent>(bullet->GetRootComponent());
 			if (BulletPrimitive)
 			{
@@ -825,8 +849,6 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 			// Draw the debug line following the bullet's trajectory
 			DrawDebugLine(GetWorld(), SpawnLocation, BulletTrajectoryEndPoint, FColor::Red, true, 1, 0, 2);
 		}
-
-		CurrentWeapon->AmmoInClip = FMath::Clamp(CurrentWeapon->AmmoInClip - 1, 0, CurrentWeapon->MaxAmmoInClip);
 		ApplyRecoil();
 	}
 
@@ -907,6 +929,38 @@ void AFPSCharacter::Tick(float DeltaTime)
 
 		UpdateWeaponTransform(DeltaTime);
 
+		if (CurrentWeapon && Controller)
+		{
+			if (bCanFire)
+			{
+				// Recover the weapon position when not firing
+				FRotator CurrentRotation = WeaponMesh->GetRelativeRotation();
+				FRotator InterpolatedRotation = FMath::RInterpTo(CurrentRotation, OriginalSocketRotation, DeltaTime, CurrentWeapon->RecoverySpeed);
+				WeaponMesh->SetRelativeRotation(InterpolatedRotation);
+			}
+			else
+			{
+				// Apply the current recoil to the weapon
+				CurrentWeapon->CurrentRecoil = FMath::RInterpTo(CurrentWeapon->CurrentRecoil, FRotator::ZeroRotator, DeltaTime, CurrentWeapon->RecoilInterpSpeed);
+
+				FRotator NewWeaponRotation = WeaponMesh->GetRelativeRotation() + CurrentWeapon->CurrentRecoil;
+
+				// Clamp the pitch so the weapon doesn't flip upside down
+				NewWeaponRotation.Pitch = FMath::Clamp(NewWeaponRotation.Pitch, -CurrentWeapon->MaxVerticalRecoil, CurrentWeapon->MaxVerticalRecoil);
+				NewWeaponRotation.Yaw = FMath::Clamp(NewWeaponRotation.Yaw, -CurrentWeapon->MaxHorizontalRecoil, CurrentWeapon->MaxHorizontalRecoil);
+
+				// Apply new rotation to the weapon
+				WeaponMesh->SetRelativeRotation(NewWeaponRotation);
+
+				if (AController* PC = GetController())
+				{
+					FRotator CurrentControlRotation = PC->GetControlRotation();
+					CurrentControlRotation.Pitch += CurrentWeapon->CurrentRecoil.Pitch * CurrentWeapon->ControllerRecoilFactor;
+					CurrentControlRotation.Yaw += CurrentWeapon->CurrentRecoil.Yaw * CurrentWeapon->ControllerRecoilFactor;
+					PC->SetControlRotation(CurrentControlRotation);
+				}
+			}
+		}
 }
 
 void AFPSCharacter::ServerTick(float DeltaTime)
@@ -970,7 +1024,8 @@ void AFPSCharacter::StartFire(const FInputActionValue& Val)
 {
 	if (CanFire()) {
 		if (CurrentWeapon) {
-			bCanFire = false;  // Disallow firing
+			bCanFire = false;// Disallow firing
+			bIsFiring = true;
 			FTransform SocketTransform = WeaponMesh->GetSocketTransform("frontSightPost");
 
 			if (HasAuthority())
@@ -1014,27 +1069,61 @@ void AFPSCharacter::ResetFire()
 
 void AFPSCharacter::Fire(FTransform SocketTransform)
 {
-	//or statement may be redundant as it is never checked.
+	FVector FireLocation;
+	FRotator FireRotation;
+	FRotator RandomSpread = FRotator(FMath::RandRange(-CurrentWeapon->WeaponSpread, CurrentWeapon->WeaponSpread), FMath::RandRange(-CurrentWeapon->WeaponSpread, CurrentWeapon->WeaponSpread), FMath::RandRange(-CurrentWeapon->WeaponSpread, CurrentWeapon->WeaponSpread));
+
 	if (bIsADS)
 	{
 		// Get the socket location
-		FVector SocketLocation = SocketTransform.GetLocation();
+		FireLocation = SocketTransform.GetLocation();
 
 		// Get the socket rotation
-		FRotator SocketRotation = SocketTransform.GetRotation().Rotator();
+		FireRotation = SocketTransform.GetRotation().Rotator();
 
-		SpawnProjectile(SocketLocation, SocketRotation);
-		return;
+		OriginalSocketRotation = WeaponMesh->GetRelativeRotation();
+
+	}
+	else
+	{
+		FTransform FiringPosition = GetFiringPosition();
+		FireLocation = FiringPosition.GetLocation();
+		FireRotation = FiringPosition.GetRotation().Rotator() + RandomSpread;
 	}
 
-	FTransform FiringPosition = GetFiringPosition();
-	// If not aiming down sights, spawn the projectile immediately.
-	SpawnProjectile(FiringPosition.GetLocation(), FiringPosition.GetRotation().Rotator());
+	if (CurrentWeapon->bIsShotgun)
+	{
+		for (int i = 0; i < CurrentWeapon->ShotgunPellets; i++)
+		{
+			float RandomYaw = FMath::FRandRange(-CurrentWeapon->WeaponSpread, CurrentWeapon->WeaponSpread);
+			float RandomPitch = FMath::FRandRange(-CurrentWeapon->WeaponSpread, CurrentWeapon->WeaponSpread);
+
+			FRotator PelletRotation = FireRotation;
+			PelletRotation.Yaw += RandomYaw;
+			PelletRotation.Pitch += RandomPitch;
+
+			SpawnProjectile(FireLocation, PelletRotation);
+		}
+
+
+	}
+	else
+	{
+		// For non-shotgun weapons, just spawn a single projectile with no spread
+		SpawnProjectile(FireLocation, FireRotation);
+
+	}
+	CurrentWeapon->DownwardKick = -CurrentWeapon->DownwardKickAmount;
+
+
+	CurrentWeapon->AmmoInClip = FMath::Clamp(CurrentWeapon->AmmoInClip - 1, 0, CurrentWeapon->MaxAmmoInClip);
+
 }
 
 void AFPSCharacter::ServerStartFire_Implementation(FTransform SocketTransform)
 {
 	Fire(SocketTransform);
+	ApplyRecoil();
 }
 
 bool AFPSCharacter::ServerStartFire_Validate(FTransform SocketTransform)

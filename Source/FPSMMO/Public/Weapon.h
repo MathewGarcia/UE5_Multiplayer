@@ -33,6 +33,8 @@ public:
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category = "Weapon")
 		float FireRate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Name")
+		FString WeaponName;
 
 	UFUNCTION()
 		void OnRep_PickedUp();
@@ -68,6 +70,10 @@ public:
 		int MaxAmmo;
 	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		int MaxAmmoInClip;
+
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		float WeaponSpread;
+
 
 	UPROPERTY(ReplicatedUsing = OnRep_Reloading,EditAnywhere,BlueprintReadWrite, Category = "Weapon")
 		bool bIsReloading;
@@ -107,6 +113,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
 		int ShotgunPellets;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float RecoverySpeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float RecoilInterpSpeed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float DownwardKickAmount;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recoil")
+		float ControllerRecoilFactor;
+
+
+	float DownwardKick;
+
+
+
+	FRotator CurrentRecoil = FRotator::ZeroRotator;
+
+		FRotator TargetRecoil;
+
 protected:
 
 
@@ -122,4 +149,5 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
 };

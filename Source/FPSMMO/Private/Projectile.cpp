@@ -12,6 +12,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "DrawDebugHelpers.h"
+#include "PlayerInfoState.h"
 
 class AGameState;
 class UGameplayStatics;
@@ -86,23 +87,15 @@ void AProjectile::BeginPlay()
 void AProjectile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
-		// Draw a debug line for the projectile's path
-		FVector StartLocation = GetActorLocation();
-		FVector EndLocation = StartLocation + (GetVelocity() * DeltaTime);
-		FColor LineColor = FColor::Green;
-		float LifeTime = 10.0f;
-		float Thickness = 2.0f;
-		DrawDebugLine(GetWorld(), StartLocation, EndLocation, LineColor, true, LifeTime, 0, Thickness);
 
 		// Reduce the max speed over time
 		ProjectileMovementComponent->MaxSpeed = FMath::Max(ProjectileMovementComponent->MaxSpeed - (DeltaTime * SpeedDecreaseRate), 0.0f);
 
-		// If the bullet has slowed down to a stop, do something (like destroy the bullet)
 		if (ProjectileMovementComponent->MaxSpeed <= 0.0f)
 		{
 			Destroy();
 		}
+
 }
 
 void AProjectile::FireInDirection(const FVector& Direction)
@@ -116,16 +109,24 @@ void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* 
 {
 	// Check if the actor that was hit is a player
 	AFPSCharacter* player = Cast<AFPSCharacter>(GetOwner());
+	APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
 
-	if (player)
+	if (player && PlayerInfoState)
 	{
 
 		AWeapon* Weapon = player->GetCurrentWeapon();
 		if (Weapon) {
-			if (OtherActor)
-			{
-				UGameplayStatics::ApplyPointDamage(OtherActor, Weapon->Damage, NormalImpulse, Hit, GetInstigator()->Controller, this, DamageType);
+			if (OtherActor) {
+				AFPSCharacter* EnemyPlayer = Cast<AFPSCharacter>(OtherActor);
+				if (EnemyPlayer) {
+					APlayerInfoState* EnemyPlayerState = Cast<APlayerInfoState>(EnemyPlayer->GetPlayerState());
+					if (EnemyPlayerState && EnemyPlayerState->TeamId != PlayerInfoState->TeamId)
+					{
+						UGameplayStatics::ApplyPointDamage(OtherActor, Weapon->Damage, NormalImpulse, Hit, GetInstigator()->Controller, this, DamageType);
+					}
+				}
 			}
+			//TODO:or Friendly fire is on.
 		}
 		else
 

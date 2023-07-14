@@ -36,6 +36,11 @@ FText UpHUD::UpdateText()
 	return text;
 }
 
+void UpHUD::SetText(FText newText)
+{
+	text = newText;
+}
+
 void UpHUD::NativeConstruct()
 {
 	Super::NativeConstruct();

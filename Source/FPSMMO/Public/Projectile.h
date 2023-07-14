@@ -32,6 +32,9 @@ public:
 		float SpeedDecreaseRate;
 
 	UProjectileMovementComponent* GetProjectileMovement();
+
+	bool bIsShotgunPellet = false;
+
 	
 protected:
 	// Called when the game starts or when spawned

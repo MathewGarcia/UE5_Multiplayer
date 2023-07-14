@@ -5,6 +5,9 @@
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
 #include "Components/BoxComponent.h"
+
+#define LOCTEXT_NAMESPACE "Gameplay"
+
 // Sets default values
 AWeapon::AWeapon()
 {
@@ -12,10 +15,11 @@ AWeapon::AWeapon()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	SetReplicateMovement(true);
+
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	WeaponMesh->SetupAttachment(RootComponent);
 	WeaponMesh->SetOwnerNoSee(true);
+	RootComponent = WeaponMesh;
 
 	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComp"));
 	BoxCollision->SetupAttachment(WeaponMesh);
@@ -63,7 +67,8 @@ void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 		AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(player->GetController());
 		if(FPSPC)
 		{
-			FText text = FText::FromString(TEXT("Press E to Pick Up"));
+			FString Key = player->GetKey("IA_Interact");
+			FText text = FText::Format(LOCTEXT("WeaponPickUpPrompt", "Press {0} to pick up {1}"), FText::FromString(Key), FText::FromString(WeaponName));
 
 			FPSPC->UpdateText(text);
 		}
@@ -71,7 +76,7 @@ void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 		player->WeaponCollided = this;
 	}
 }
-
+#undef LOCTEXT_NAMESPACE
 void AWeapon::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex)
 {
@@ -215,4 +220,5 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon,MaxAmmoInClip);
 	DOREPLIFETIME(AWeapon, bIsReloading);
 	DOREPLIFETIME(AWeapon, bIsAttached);
+	DOREPLIFETIME(AWeapon, WeaponSpread);
 }

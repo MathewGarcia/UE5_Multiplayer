@@ -5,6 +5,8 @@
 #include "FPSCharacter.h"
 #include "Net/UnrealNetwork.h"
 
+
+
 APlayerInfoState::APlayerInfoState()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -128,6 +130,7 @@ void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(APlayerInfoState, CurrentLevel);
 	DOREPLIFETIME(APlayerInfoState, bInCombat);
+	DOREPLIFETIME(APlayerInfoState, TeamId);
 }
 
 void APlayerInfoState::BeginPlay()
@@ -135,7 +138,6 @@ void APlayerInfoState::BeginPlay()
 	Super::BeginPlay();
 
 	player = Cast<AFPSCharacter>(GetPawn());
-	UE_LOG(LogTemp, Warning, TEXT("Player Level is : %d"),CurrentLevel);
 }
 
 void APlayerInfoState::Tick(float DeltaSeconds)

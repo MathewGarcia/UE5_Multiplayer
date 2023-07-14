@@ -44,8 +44,6 @@ public:
 	void ServerStartFire_Implementation(FTransform SocketTransform);
 	bool ServerStartFire_Validate(FTransform SocketTransform);
 
-
-
 	void Fire(FTransform SocketTransform);
 
 	float MaxShield;
@@ -215,6 +213,12 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, Category = "Slide")
 		float GroundSlope;
+
+	void SetCanPlant(bool bCanPlant);
+
+	bool GetCanPlant();
+
+	FString GetKey(const FString& ActionName);
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -225,8 +229,11 @@ private:
 
 	float DefaultFOV;
 
+	float TargetControllerRecoil;
 
-
+	float DownwardKick;
+	//planting
+	bool CanPlant;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -327,7 +334,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon Info")
 	FRotator WeaponTargetRotation;
 
+	FRotator OriginalSocketRotation;
 
+	bool bIsFiring;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;

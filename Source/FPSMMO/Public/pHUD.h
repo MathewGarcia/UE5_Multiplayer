@@ -41,10 +41,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UpdateText")
 		FText UpdateText();
 
-	FText text;
+	UFUNCTION()
+		void SetText(FText newText);
+
 private:
 	APlayerState* PS;
-	
+	FText text;
+
 
 protected:
 	virtual void NativeConstruct() override;

@@ -38,7 +38,7 @@ void AFPSPlayerController::UpdateText(FText text)
 {
 	if(HUDWidget)
 	{
-		HUDWidget->text = text;
+		HUDWidget->SetText(text);
 		HUDWidget->UpdateText();
 	}
 }
