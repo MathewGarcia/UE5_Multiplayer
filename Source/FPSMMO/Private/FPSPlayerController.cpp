@@ -4,11 +4,12 @@
 #include "FPSPlayerController.h"
 #include "FPSCharacter.h"
 #include "pHUD.h"
+#include "PlayerInfoState.h"
+#include "TaccomWidget.h"
 
 AFPSPlayerController::AFPSPlayerController()
 {
 
-	SetReplicates(true);
 	bReplicates = true;
 }
 
@@ -43,6 +44,26 @@ void AFPSPlayerController::UpdateText(FText text)
 	}
 }
 
+void AFPSPlayerController::OpenTaccom(bool bIsOpened)
+{
+	if(bIsOpened)
+	{
+		TaccomWidget->SetVisibility(ESlateVisibility::Visible);
+		HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+	else
+	{
+		TaccomWidget->SetVisibility(ESlateVisibility::Hidden);
+		HUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+
+}
+
+void AFPSPlayerController::SetPlayerState(APlayerInfoState* PlayerInfoState)
+{
+	PIS = PlayerInfoState;
+}
+
 void AFPSPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -50,8 +71,17 @@ void AFPSPlayerController::BeginPlay()
 	if (IsLocalPlayerController()) {
 		HUDWidget = CreateWidget<UpHUD>(this, pHUDClass.LoadSynchronous());
 			 player = Cast<AFPSCharacter>(HUDWidget->GetOwningPlayerPawn());
+
 			if (HUDWidget) {
 				HUDWidget->AddToViewport();
 			}
+
+		TaccomWidget = CreateWidget<UTaccomWidget>(this, pTaccomWidgetClass.LoadSynchronous());
+		if(TaccomWidget)
+		{
+			TaccomWidget->AddToViewport();
+			TaccomWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+
 	}
 }

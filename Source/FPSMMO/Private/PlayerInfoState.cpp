@@ -138,6 +138,7 @@ void APlayerInfoState::BeginPlay()
 	Super::BeginPlay();
 
 	player = Cast<AFPSCharacter>(GetPawn());
+
 }
 
 void APlayerInfoState::Tick(float DeltaSeconds)

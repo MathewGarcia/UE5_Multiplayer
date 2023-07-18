@@ -44,6 +44,7 @@ public:
 	UFUNCTION()
 		void SetText(FText newText);
 
+
 private:
 	APlayerState* PS;
 	FText text;

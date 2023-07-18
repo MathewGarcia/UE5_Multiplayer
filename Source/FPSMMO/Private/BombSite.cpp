@@ -67,8 +67,6 @@ void ABombSite::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
 			if (PC)
 			{
-			
-
 				PC->UpdateText(FText::FromString(TEXT("")));
 			}
 		}

@@ -14,7 +14,9 @@ UCLASS()
 class FPSMMO_API AFPSMMOGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
+
 public:
+	AFPSMMOGameModeBase();
 	int32 RedTeamPlayerCount = 0;
 	int32 BlueTeamPlayerCount = 0;
 
@@ -41,4 +43,6 @@ public:
 
 		virtual void PostLogin(APlayerController* NewPlayer) override;
 
+protected:
+		virtual void InitGameState() override;
 };

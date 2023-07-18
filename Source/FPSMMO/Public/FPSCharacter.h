@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class AFPSGameState;
 class UPlayerCharacterMovementComponent;
 struct FInputActionValue;
 class APlayerInfoState;
@@ -219,6 +220,32 @@ public:
 	bool GetCanPlant();
 
 	FString GetKey(const FString& ActionName);
+
+	void OpenTaccom(const FInputActionValue& InputActionValue);
+
+	//planting
+	UFUNCTION()
+		void OnRep_IsPlanting();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetPlanting(bool isPlanting);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerPlant();
+
+	void StopPlanting();
+
+	bool GetIsPlanting();
+
+	FTimerHandle PlantingTimerHandle;
+
+	FTimerHandle HoldTimer;
+
+	void Plant();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category = "planting time")
+	float PlantingTime;
+
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -233,7 +260,13 @@ private:
 
 	float DownwardKick;
 	//planting
+	UPROPERTY(Replicated)
 	bool CanPlant;
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsPlanting)
+		bool bIsPlanting;
+
+	AFPSGameState* GS;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -306,6 +339,8 @@ protected:
 	void KilledBy(AController* EventInstigator);
 
 	void Interact();
+
+	void EndInteract();
 
 	UFUNCTION(Server, Reliable)
 		void HandleInteract();

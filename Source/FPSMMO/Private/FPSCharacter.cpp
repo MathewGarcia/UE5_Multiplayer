@@ -21,7 +21,9 @@
 #include "EnhancedInputComponent.h"
 #include "InputConfigData.h"
 #include "DrawDebugHelpers.h"
+#include "FPSGameState.h"
 #include "InputMappingContext.h"
+#include "TaccomWidget.h"
 #include "GameFramework/InputSettings.h"
 
 
@@ -71,7 +73,7 @@ AFPSCharacter::AFPSCharacter()
 
 		DefaultFOV = 90;
 
-
+		bIsPlanting = false;
 }
 
 void AFPSCharacter::Move(const FInputActionValue& Value)
@@ -662,6 +664,89 @@ FString AFPSCharacter::GetKey(const FString& ActionName)
 	return FString();
 }
 
+void AFPSCharacter::OpenTaccom(const FInputActionValue& InputActionValue)
+{
+	if(FPSPC)
+	{
+		FPSPC->OpenTaccom(InputActionValue.Get<bool>());
+	}
+}
+
+void AFPSCharacter::OnRep_IsPlanting()
+{
+	//play planting sound based on isplanting.
+}
+
+void AFPSCharacter::ServerPlant_Implementation()
+{
+
+	if (bIsPlanting)
+	{
+		//set bIsBombPlanted to true.
+		if(GS)
+		{
+			GS->bIsBombPlanted = true;
+		}
+		UE_LOG(LogTemp, Warning, TEXT("Bomb Planted"));
+	}
+}
+
+bool AFPSCharacter::ServerPlant_Validate()
+{
+	return true;
+}
+
+
+void AFPSCharacter::StopPlanting()
+{
+	ServerSetPlanting(false);
+	UE_LOG(LogTemp, Warning, TEXT("Stopped Planting Bomb"));
+		
+	
+}
+
+void AFPSCharacter::ServerSetPlanting_Implementation(bool isPlanting)
+{
+	bIsPlanting = isPlanting;
+	UE_LOG(LogTemp, Warning, TEXT("Planting: %s"), bIsPlanting ? TEXT("TRUE") : TEXT("FALSE"));
+
+	if (GS) {
+		if (!isPlanting && GetWorld()->GetTimerManager().IsTimerActive(PlantingTimerHandle) || GS->bIsBombPlanted)
+		{
+			// Planting was stopped before the timer ran out. Clear the timer.
+			GetWorld()->GetTimerManager().ClearTimer(PlantingTimerHandle);
+		}
+		else if (isPlanting)
+		{
+			// Started planting. Set the timer.
+			GetWorld()->GetTimerManager().SetTimer(PlantingTimerHandle, this, &AFPSCharacter::ServerPlant, PlantingTime, false);
+		}
+	}
+}
+
+bool AFPSCharacter::ServerSetPlanting_Validate(bool isPlanting)
+{
+	return true;
+}
+
+bool AFPSCharacter::GetIsPlanting()
+{
+	return bIsPlanting;
+}
+
+void AFPSCharacter::Plant()
+{
+	if (HasAuthority()) {
+		bIsPlanting = false;
+	}
+	else
+	{
+		ServerSetPlanting(false);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Bomb Planted"));
+}
+
+
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
 
@@ -707,7 +792,7 @@ void AFPSCharacter::BeginPlay()
 	DefaultWeaponTransform = FPSMeshArms->GetRelativeTransform();
 	NormalWeaponRotation = WeaponMesh->GetRelativeRotation(); 
 
-
+	GS = GetWorld()->GetGameState<AFPSGameState>();
 }
 
 void AFPSCharacter::SetHealth(float hp)
@@ -882,8 +967,38 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 
 void AFPSCharacter::Interact()
 {
+	//if we arent interacting with the bomb site.
+	if (!CanPlant) {
 		HandleInteract();
+		return;
+	}
+	//if we are not planting, can plant and are not collided with a weapon, we start to crouch, we set serverplanting to true, and then if we hold the button long enough, server plant will be called.
+	//knowing interact has a released trigger (this function will be called upon release of the trigger) in IA_Interact this function will be called again, if we did not finish planting (bIsPlanting is true)
+	//and are still in the trigger, and the timer still exists, we cancel the plant. If the timer does not exist, that means we finished planting. Which in ServerPlant calls bIsPlanting = false;
+	if (GS) {
+		if (CanPlant && !bIsPlanting && !WeaponCollided && !GS->bIsBombPlanted) {
+			StartCrouch();
+			ServerSetPlanting(true);
+		}
+		// Otherwise, if we are planting, then stop planting and uncrouch.
+		else if (CanPlant && bIsPlanting) {
+			StopPlanting();
+			UnCrouch();
+		}
+	}
 }
+
+void AFPSCharacter::EndInteract()
+{
+		if (bIsPlanting && GetWorld()->GetTimerManager().IsTimerActive(PlantingTimerHandle))
+		{
+			GetWorld()->GetTimerManager().ClearTimer(PlantingTimerHandle);
+			StopPlanting();
+			UnCrouch();
+		}
+
+}
+
 
 void AFPSCharacter::HandleInteract_Implementation()
 {
@@ -1011,12 +1126,16 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Completed, this, &AFPSCharacter::StopFire);
 	PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Triggered, this, &AFPSCharacter::Interact);
+	//PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Completed, this, &AFPSCharacter::EndInteract);
 	PEI->BindAction(InputActions->InputSwapWeapons, ETriggerEvent::Triggered, this, &AFPSCharacter::WeaponSwap);
 	PEI->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &AFPSCharacter::StartSprint);
 	PEI->BindAction(InputActions->InputJump, ETriggerEvent::Triggered, this, &ACharacter::Jump);
 	PEI->BindAction(InputActions->InputCrouch, ETriggerEvent::Triggered, this, &AFPSCharacter::StartCrouch);
 	PEI->BindAction(InputActions->InputADS, ETriggerEvent::Triggered, this, &AFPSCharacter::StartADS);
 	PEI->BindAction(InputActions->InputReload, ETriggerEvent::Triggered, this, &AFPSCharacter::StartReload);
+	PEI->BindAction(InputActions->InputTaccom, ETriggerEvent::Triggered, this, &AFPSCharacter::OpenTaccom);
+
+
 
 }
 
@@ -1342,4 +1461,6 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, InitialSlideVelocity);
 	DOREPLIFETIME(AFPSCharacter, bIsADS);
 	DOREPLIFETIME(AFPSCharacter, WeaponCollided);
+	DOREPLIFETIME(AFPSCharacter, CanPlant);
+	DOREPLIFETIME(AFPSCharacter, bIsPlanting);
 }

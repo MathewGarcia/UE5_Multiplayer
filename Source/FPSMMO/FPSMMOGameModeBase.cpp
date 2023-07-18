@@ -2,7 +2,14 @@
 
 
 #include "FPSMMOGameModeBase.h"
+
+#include "FPSGameState.h"
 #include "PlayerInfoState.h"
+
+AFPSMMOGameModeBase::AFPSMMOGameModeBase()
+{
+    PlayerStateClass = APlayerInfoState::StaticClass();
+}
 
 APawn* AFPSMMOGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
 {
@@ -25,5 +32,16 @@ void AFPSMMOGameModeBase::PostLogin(APlayerController* NewPlayer)
     if (FPSPlayerState)
     {
         FPSPlayerState->SetPlayerController(NewPlayer);
+    }
+}
+
+void AFPSMMOGameModeBase::InitGameState()
+{
+	Super::InitGameState();
+
+    AFPSGameState* GS = GetGameState<AFPSGameState>();
+    if(GS)
+    {
+        GS->bIsBombPlanted = false;
     }
 }

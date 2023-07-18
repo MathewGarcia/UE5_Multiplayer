@@ -6,12 +6,14 @@
 #include "FPSCharacter.h"
 #include "TeamEnum.h"
 #include "Components/BoxComponent.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 ACaptureRing::ACaptureRing()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
 
 	FlagMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Flag Mesh"));
 	RootComponent = FlagMesh;
@@ -37,7 +39,9 @@ void ACaptureRing::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 		APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
 		if(PlayerInfoState && PlayerInfoState->TeamId != this->TeamId)
 		{
-			GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
+			if (HasAuthority()) {
+				GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
+			}
 			UE_LOG(LogTemp, Warning, TEXT("IN RING"));
 		}
 	}
@@ -58,13 +62,33 @@ int ACaptureRing::GetRingPoints()
 	return RingPoints;
 }
 
+void ACaptureRing::ServerIncrementPoints_Implementation()
+{
+	IncrementRingPoints();
+}
+
+bool ACaptureRing::ServerIncrementPoints_Validate()
+{
+	return true;
+}
+
 void ACaptureRing::IncrementRingPoints()
 {
-	if (RingPoints < MaxRingPoints) {
+	if (RingPoints < MaxRingPoints && HasAuthority()) {
 		RingPoints++;
 		UE_LOG(LogTemp, Warning, TEXT("Incrementing points: %d "), RingPoints);
-
 	}
+}
+
+int ACaptureRing::GetMaxRingPoints()
+{
+	return MaxRingPoints;
+}
+
+
+void ACaptureRing::OnRep_RingPoints()
+{
+	OnRingPointsUpdated.Broadcast();
 }
 
 // Called when the game starts or when spawned
@@ -74,6 +98,12 @@ void ACaptureRing::BeginPlay()
 
 	RingPoints = 0;
 	
+}
+
+void ACaptureRing::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ACaptureRing, RingPoints);
 }
 
 // Called every frame
