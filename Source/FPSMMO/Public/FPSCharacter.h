@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class ABomb;
 class AFPSGameState;
 class UPlayerCharacterMovementComponent;
 struct FInputActionValue;
@@ -16,6 +17,14 @@ class AWeapon;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
+
+UENUM(BlueprintType)
+enum class EBombInteractionType : uint8
+{
+	None UMETA(DisplayName = "None"),
+	Planting UMETA(DisplayName = "Planting"),
+	Defusing UMETA(DisplayName = "Defusing")
+};
 
 
 UCLASS()
@@ -224,31 +233,38 @@ public:
 	void OpenTaccom(const FInputActionValue& InputActionValue);
 
 	//planting
-	UFUNCTION()
-		void OnRep_IsPlanting();
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetBombInteraction(EBombInteractionType InteractionType);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerSetPlanting(bool isPlanting);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-		void ServerPlant();
+		void ServerBombInteraction();
 
 	void StopPlanting();
 
-	bool GetIsPlanting();
-
-	FTimerHandle PlantingTimerHandle;
-
-	FTimerHandle HoldTimer;
-
-	void Plant();
+	FTimerHandle BombInteractionTimerHandle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category = "planting time")
-	float PlantingTime;
+	float BombInteractionTime;
+
+	UPROPERTY(Replicated,VisibleAnywhere, BlueprintReadOnly, Category = "Bomb Interaction")
+		EBombInteractionType BombInteractionType;
+
+	//end planting
+
+	//defuse
+
+	void SetCanDefuse(bool CanDefuse);
+
+	bool GetCanDefuse();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "bomb")
+		TSubclassOf<ABomb>bomb;
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
+
+	bool bCanDefuse;
 
 
 	float MinimumSlideSpeed = 1500.0f;
@@ -262,9 +278,6 @@ private:
 	//planting
 	UPROPERTY(Replicated)
 	bool CanPlant;
-
-	UPROPERTY(ReplicatedUsing = OnRep_IsPlanting)
-		bool bIsPlanting;
 
 	AFPSGameState* GS;
 protected:

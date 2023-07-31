@@ -2,6 +2,8 @@
 
 
 #include "FPSCharacter.h"
+
+#include "Bomb.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -72,8 +74,6 @@ AFPSCharacter::AFPSCharacter()
 		SlideStartTime = 0;
 
 		DefaultFOV = 90;
-
-		bIsPlanting = false;
 }
 
 void AFPSCharacter::Move(const FInputActionValue& Value)
@@ -672,80 +672,93 @@ void AFPSCharacter::OpenTaccom(const FInputActionValue& InputActionValue)
 	}
 }
 
-void AFPSCharacter::OnRep_IsPlanting()
-{
-	//play planting sound based on isplanting.
-}
 
-void AFPSCharacter::ServerPlant_Implementation()
+void AFPSCharacter::ServerBombInteraction_Implementation()
 {
-
-	if (bIsPlanting)
+	if(BombInteractionType == EBombInteractionType::Planting)
 	{
-		//set bIsBombPlanted to true.
-		if(GS)
+		ABomb* Bomb = GetWorld()->SpawnActor<ABomb>(bomb);
+		if(Bomb)
 		{
-			GS->bIsBombPlanted = true;
+			Bomb->PlaceAtLocation(GetActorLocation());
+			if(GS)
+			{
+				GS->bIsBombPlanted = true;
+				GS->SetBomb(Bomb);
+				GS->OnBombPlanted();
+				UE_LOG(LogTemp, Warning, TEXT("Bomb Planted"));
+			}
 		}
-		UE_LOG(LogTemp, Warning, TEXT("Bomb Planted"));
+	}
+	else if (BombInteractionType == EBombInteractionType::Defusing)
+	{
+		//defuse the bomb
+		if (GS) {
+			if (GetWorld()->GetTimerManager().IsTimerActive(GS->BombTimerHandle))
+			{
+				GetWorld()->GetTimerManager().ClearTimer(GS->BombTimerHandle);
+				if(GS->GetBomb())
+				{
+					GS->GetBomb()->Destroy();
+					UE_LOG(LogTemp, Warning, TEXT("Bomb Defused"));
+				}
+			}
+		}
 	}
 }
 
-bool AFPSCharacter::ServerPlant_Validate()
+bool AFPSCharacter::ServerBombInteraction_Validate()
 {
 	return true;
 }
-
 
 void AFPSCharacter::StopPlanting()
 {
-	ServerSetPlanting(false);
-	UE_LOG(LogTemp, Warning, TEXT("Stopped Planting Bomb"));
-		
-	
+	ServerSetBombInteraction(EBombInteractionType::None);
+	UE_LOG(LogTemp, Warning, TEXT("Stopped interacting with Bomb"));
 }
 
-void AFPSCharacter::ServerSetPlanting_Implementation(bool isPlanting)
+void AFPSCharacter::ServerSetBombInteraction_Implementation(EBombInteractionType InteractionType)
 {
-	bIsPlanting = isPlanting;
-	UE_LOG(LogTemp, Warning, TEXT("Planting: %s"), bIsPlanting ? TEXT("TRUE") : TEXT("FALSE"));
+	BombInteractionType = InteractionType;
+
+	UE_LOG(LogTemp, Warning, TEXT("InteractionType: %s"), *UEnum::GetValueAsString(BombInteractionType));
 
 	if (GS) {
-		if (!isPlanting && GetWorld()->GetTimerManager().IsTimerActive(PlantingTimerHandle) || GS->bIsBombPlanted)
+		if (InteractionType == EBombInteractionType::None && GetWorld()->GetTimerManager().IsTimerActive(BombInteractionTimerHandle) && GS->bIsBombPlanted)
 		{
-			// Planting was stopped before the timer ran out. Clear the timer.
-			GetWorld()->GetTimerManager().ClearTimer(PlantingTimerHandle);
+			// Interaction was stopped before the timer ran out. Clear the timer.
+			GetWorld()->GetTimerManager().ClearTimer(BombInteractionTimerHandle);
 		}
-		else if (isPlanting)
-		{
-			// Started planting. Set the timer.
-			GetWorld()->GetTimerManager().SetTimer(PlantingTimerHandle, this, &AFPSCharacter::ServerPlant, PlantingTime, false);
+			// Started interacting. Set the timer.
+		else if (InteractionType == EBombInteractionType::Planting) {
+				GetWorld()->GetTimerManager().SetTimer(BombInteractionTimerHandle, this, &AFPSCharacter::ServerBombInteraction, BombInteractionTime, false);
 		}
+		else if(InteractionType == EBombInteractionType::Defusing)
+			{
+			GS->GetBomb()->MulticastDefusing();
+				GetWorld()->GetTimerManager().SetTimer(BombInteractionTimerHandle, this, &AFPSCharacter::ServerBombInteraction, 7.0f, false);
+			}
+		
 	}
 }
 
-bool AFPSCharacter::ServerSetPlanting_Validate(bool isPlanting)
+bool AFPSCharacter::ServerSetBombInteraction_Validate(EBombInteractionType InteractionType)
 {
 	return true;
 }
 
-bool AFPSCharacter::GetIsPlanting()
+
+
+void AFPSCharacter::SetCanDefuse(bool CanDefuse)
 {
-	return bIsPlanting;
+	bCanDefuse = CanDefuse;
 }
 
-void AFPSCharacter::Plant()
+bool AFPSCharacter::GetCanDefuse()
 {
-	if (HasAuthority()) {
-		bIsPlanting = false;
-	}
-	else
-	{
-		ServerSetPlanting(false);
-	}
-	UE_LOG(LogTemp, Warning, TEXT("Bomb Planted"));
+	return bCanDefuse;
 }
-
 
 void AFPSCharacter::ServerPerformSlide_Implementation(float DeltaTime)
 {
@@ -976,28 +989,24 @@ void AFPSCharacter::Interact()
 	//knowing interact has a released trigger (this function will be called upon release of the trigger) in IA_Interact this function will be called again, if we did not finish planting (bIsPlanting is true)
 	//and are still in the trigger, and the timer still exists, we cancel the plant. If the timer does not exist, that means we finished planting. Which in ServerPlant calls bIsPlanting = false;
 	if (GS) {
-		if (CanPlant && !bIsPlanting && !WeaponCollided && !GS->bIsBombPlanted) {
+		if (CanPlant && BombInteractionType == EBombInteractionType::None && !WeaponCollided && !GS->bIsBombPlanted) {
 			StartCrouch();
-			ServerSetPlanting(true);
+			ServerSetBombInteraction(EBombInteractionType::Planting);
 		}
 		// Otherwise, if we are planting, then stop planting and uncrouch.
-		else if (CanPlant && bIsPlanting) {
+		else if (CanPlant && BombInteractionType == EBombInteractionType::Planting || BombInteractionType == EBombInteractionType::Defusing) {
 			StopPlanting();
 			UnCrouch();
+		}
+		//for defusing not done yet.
+		else if (GS->bIsBombPlanted && BombInteractionType == EBombInteractionType::None)
+		{
+			StartCrouch();
+			ServerSetBombInteraction(EBombInteractionType::Defusing);
 		}
 	}
 }
 
-void AFPSCharacter::EndInteract()
-{
-		if (bIsPlanting && GetWorld()->GetTimerManager().IsTimerActive(PlantingTimerHandle))
-		{
-			GetWorld()->GetTimerManager().ClearTimer(PlantingTimerHandle);
-			StopPlanting();
-			UnCrouch();
-		}
-
-}
 
 
 void AFPSCharacter::HandleInteract_Implementation()
@@ -1126,7 +1135,6 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Triggered, this, &AFPSCharacter::StartFire);
 	PEI->BindAction(InputActions->InputFire, ETriggerEvent::Completed, this, &AFPSCharacter::StopFire);
 	PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Triggered, this, &AFPSCharacter::Interact);
-	//PEI->BindAction(InputActions->InputInteraction, ETriggerEvent::Completed, this, &AFPSCharacter::EndInteract);
 	PEI->BindAction(InputActions->InputSwapWeapons, ETriggerEvent::Triggered, this, &AFPSCharacter::WeaponSwap);
 	PEI->BindAction(InputActions->InputSprint, ETriggerEvent::Triggered, this, &AFPSCharacter::StartSprint);
 	PEI->BindAction(InputActions->InputJump, ETriggerEvent::Triggered, this, &ACharacter::Jump);
@@ -1462,5 +1470,5 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, bIsADS);
 	DOREPLIFETIME(AFPSCharacter, WeaponCollided);
 	DOREPLIFETIME(AFPSCharacter, CanPlant);
-	DOREPLIFETIME(AFPSCharacter, bIsPlanting);
+	DOREPLIFETIME(AFPSCharacter, BombInteractionType);
 }
