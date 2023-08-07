@@ -7,7 +7,6 @@
 #include "FPSPlayerController.h"
 #include "MarketItemData.h"
 #include "PlayerInfoState.h"
-#include "Weapon.h"
 #include "Components/TextBlock.h"
 
 

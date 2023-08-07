@@ -7,8 +7,6 @@
 
 void UMarketItemData::SetQuantity(int32 NewQuantity)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Setting Quantity: %d"), NewQuantity);
-
 	CurrentQuantity = NewQuantity;
 }
 
@@ -21,14 +19,6 @@ void UMarketItemData::InitializeData()
 {
 	CurrentQuantity = InitialQuantity;
 }
-
-//void UMarketItemData::PostInitProperties()
-//{
-//	Super::PostInitProperties();
-//	UE_LOG(LogTemp, Warning, TEXT("PostInit: InitialQuantity: %d"), InitialQuantity);
-//
-//	CurrentQuantity = InitialQuantity;
-//}
 
 
 

@@ -15,8 +15,6 @@ class FPSMMO_API UMarketItemData : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
-		UMarketItemData(const FObjectInitializer& ObjectInitializer);
-
 public:
 		UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		TSubclassOf<AWeapon> WeaponClass;
@@ -40,8 +38,7 @@ public:
 private:
 
 	int32 CurrentQuantity;
-protected:
-	/*virtual void PostInitProperties() override;*/
+
 
 
 
