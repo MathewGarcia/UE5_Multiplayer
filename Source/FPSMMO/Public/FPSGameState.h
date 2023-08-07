@@ -6,6 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "FPSGameState.generated.h"
 
+class ABombSite;
 class ABomb;
 /**
  * 
@@ -19,9 +20,10 @@ public:
 		UPROPERTY(Replicated)
 		bool bIsBombPlanted;
 
-		void BombTimerEnded();
+	UFUNCTION()
+		void BombTimerEnded(ABomb*bomb);
 
-		void OnBombPlanted();
+		void OnBombPlanted(ABomb*bomb);
 
 		FTimerHandle BombTimerHandle;
 
@@ -30,6 +32,9 @@ public:
 		void SetBomb(ABomb* bomb);
 
 		ABomb* GetBomb();
+
+		UPROPERTY(Replicated)
+			TArray<ABombSite*>BombSites;
 private:
 	UPROPERTY(Replicated)
 	ABomb* Bomb;

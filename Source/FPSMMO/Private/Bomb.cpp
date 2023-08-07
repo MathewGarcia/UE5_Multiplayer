@@ -6,6 +6,7 @@
 #include "FPSPlayerController.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
 
@@ -88,6 +89,16 @@ void ABomb::MulticastDefusing_Implementation()
 	DefusingEffect->ActivateSystem();
 }
 
+void ABomb::SetTeam(ETeam TeamID)
+{
+	TeamId = TeamID;
+}
+
+ETeam ABomb::GetTeam()
+{
+	return TeamId;
+}
+
 // Called when the game starts or when spawned
 void ABomb::BeginPlay()
 {
@@ -101,20 +112,16 @@ void ABomb::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 	if(OtherActor)
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-		if(player)
+		if (player)
 		{
-			if(!player->GetCanDefuse())
+			SetOwner(player);
+			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
+			if (PC)
 			{
-				player->SetCanDefuse(true);
+				FString Key = player->GetKey("IA_Interact");
+				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Defuse"), FText::FromString(Key));
 
-				AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-				if (PC)
-				{
-					FString Key = player->GetKey("IA_Interact");
-					FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Defuse"), FText::FromString(Key));
-
-					PC->UpdateText(text);
-				}
+				PC->UpdateText(text);
 			}
 		}
 	}
@@ -130,18 +137,12 @@ void ABomb::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherAc
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 		if (player)
 		{
-			if (player->GetCanDefuse())
-			{
-				player->SetCanDefuse(false);
-
-
 				AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
 				if (PC)
 				{
 
 					PC->UpdateText(FText::FromString(TEXT("")));
 				}
-			}
 		}
 	}
 }
@@ -152,4 +153,13 @@ void ABomb::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 }
+
+
+void ABomb::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABomb, TeamId);
+}
+
 

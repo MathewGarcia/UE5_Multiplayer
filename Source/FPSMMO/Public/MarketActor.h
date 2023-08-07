@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "MarketActor.generated.h"
 
+class UMarketDataAsset;
 class UBoxComponent;
 UCLASS()
 class FPSMMO_API AMarketActor : public AActor
@@ -22,6 +23,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Actor Mesh")
 	UStaticMeshComponent* ActorMesh;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+		UMarketDataAsset* MarketDataAsset;
+
+	void SetupMarket();
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

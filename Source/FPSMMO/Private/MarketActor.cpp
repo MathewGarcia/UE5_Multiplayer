@@ -5,9 +5,11 @@
 
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
+#include "MarketWidget.h"
 #include "Components/BoxComponent.h"
 
 #define LOCTEXT_NAMESPACE "Gameplay"
+
 
 // Sets default values
 AMarketActor::AMarketActor()
@@ -27,11 +29,25 @@ AMarketActor::AMarketActor()
 
 }
 
+void AMarketActor::SetupMarket()
+{
+	AFPSPlayerController* PC = Cast<AFPSPlayerController>(GetWorld()->GetFirstPlayerController());
+	if (PC)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Set up market"));
+		PC->UpdateMarket(MarketDataAsset);
+	}
+
+
+}
+
+
 // Called when the game starts or when spawned
 void AMarketActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	SetupMarket();
 }
 
 void AMarketActor::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -42,12 +58,12 @@ void AMarketActor::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 		if(player)
 		{
+			player->SetCanOpenMarket(true);
 			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
 			if (PC)
 			{
 				FString Key = player->GetKey("IA_Interact");
 				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Open Market"), FText::FromString(Key));
-
 				PC->UpdateText(text);
 			}
 		}
@@ -65,6 +81,7 @@ void AMarketActor::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 
 		if(player)
 		{
+			player->SetCanOpenMarket(false);
 			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
 			if (PC)
 			{

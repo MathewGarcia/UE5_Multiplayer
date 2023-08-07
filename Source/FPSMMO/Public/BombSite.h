@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "BombSite.generated.h"
 
+class ABomb;
 class UBoxComponent;
 UCLASS()
 class ABombSite : public AActor
@@ -22,6 +23,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Bomb Mesh")
 		UStaticMeshComponent* BombMesh;
 
+	UPROPERTY(ReplicatedUsing = OnRep_BoxComponentEnabled)
+		bool bBoxComponentEnabled;
+
+	UFUNCTION()
+		void OnRep_BoxComponentEnabled();
+
+	void SetPlantedBomb(ABomb*Bomb);
+
+	ABomb* GetPlantedBomb();
+
+private:
+	UPROPERTY(Replicated)
+		ABomb* PlantedBomb;
 
 protected:
 	// Called when the game starts or when spawned

@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class ABombSite;
 class ABomb;
 class AFPSGameState;
 class UPlayerCharacterMovementComponent;
@@ -253,18 +254,18 @@ public:
 
 	//defuse
 
-	void SetCanDefuse(bool CanDefuse);
-
-	bool GetCanDefuse();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "bomb")
 		TSubclassOf<ABomb>bomb;
 
+	//spawning
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSpawnWeapon(TSubclassOf<AWeapon>WeaponClass);
+
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
-
-	bool bCanDefuse;
 
 
 	float MinimumSlideSpeed = 1500.0f;
@@ -280,6 +281,9 @@ private:
 	bool CanPlant;
 
 	AFPSGameState* GS;
+
+
+	bool bCanOpenMarket;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -358,6 +362,7 @@ protected:
 	UFUNCTION(Server, Reliable)
 		void HandleInteract();
 
+	bool IsButtonPressed();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
 			UInputMappingContext* InputMapping;
@@ -385,6 +390,7 @@ protected:
 	FRotator OriginalSocketRotation;
 
 	bool bIsFiring;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -401,4 +407,8 @@ public:
 		void OnRep_Health();
 	UFUNCTION()
 		void OnRep_Shield();
+
+	void SetCanOpenMarket(bool val);
+
+	bool CanOpenMarket();
 };

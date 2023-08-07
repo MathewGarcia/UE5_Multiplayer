@@ -114,6 +114,16 @@ int APlayerInfoState::GetGold()
 	return Gold;
 }
 
+void APlayerInfoState::ServerSetGold_Implementation(int32 NewGold)
+{
+	Gold = NewGold;
+}
+
+bool APlayerInfoState::ServerSetGold_Validate(int32 NewGold)
+{
+	return true;
+}
+
 void APlayerInfoState::SetGold(int gold)
 {
 	Gold += gold;
@@ -174,8 +184,6 @@ void APlayerInfoState::OnRep_InCombat()
 
 		
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Player combat is : %s"), bInCombat ? TEXT("True") : TEXT("False"));
-
 }
 
 void APlayerInfoState::SetPlayerController(APlayerController* Controller)

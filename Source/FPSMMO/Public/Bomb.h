@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Bomb.generated.h"
 
+enum class ETeam : uint8;
 class UBoxComponent;
 UCLASS()
 class FPSMMO_API ABomb : public AActor
@@ -48,6 +49,10 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 		void MulticastDefusing();
+
+	void SetTeam(ETeam TeamID);
+
+	ETeam GetTeam();
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -59,5 +64,9 @@ protected:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+private:
+	UPROPERTY(Replicated)
+		ETeam TeamId;
 
 };

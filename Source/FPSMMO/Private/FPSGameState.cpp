@@ -3,26 +3,34 @@
 
 #include "FPSGameState.h"
 #include "Bomb.h"
+#include "BombSite.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
 
-void AFPSGameState::BombTimerEnded()
+void AFPSGameState::BombTimerEnded(ABomb*bomb)
 {
-	if(Bomb)
-	{
-		Bomb->MulticastExplode();
-		UE_LOG(LogTemp, Warning, TEXT("Bomb EXPLODED"));
-		return;
-	}
+
+		if(bomb)
+		{
+			bomb->MulticastExplode();
+			UE_LOG(LogTemp, Warning, TEXT("Bomb EXPLODED"));
+			return;
+		}
+
+	
 	UE_LOG(LogTemp, Warning, TEXT("Bomb REF FAILED"));
 
 }
 
-void AFPSGameState::OnBombPlanted()
+void AFPSGameState::OnBombPlanted(ABomb*bomb)
 {
 	if (bIsBombPlanted) {
-		if(Bomb)
-		GetWorld()->GetTimerManager().SetTimer(BombTimerHandle, this, &AFPSGameState::BombTimerEnded,Bomb->BombTimer);
+		if (bomb) {
+			FTimerDelegate TimerDel;
+			TimerDel.BindUFunction(this, FName("BombTimerEnded"), bomb);
+			GetWorld()->GetTimerManager().SetTimer(BombTimerHandle, TimerDel,  bomb->BombTimer, false);
+		}
 	}
 }
 
@@ -42,11 +50,11 @@ void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 
 	DOREPLIFETIME(AFPSGameState, bIsBombPlanted);
 	DOREPLIFETIME(AFPSGameState, Bomb);
+	DOREPLIFETIME(AFPSGameState, BombSites);
 }
 
 void AFPSGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UE_LOG(LogTemp, Warning, TEXT("Begin play"));
 }

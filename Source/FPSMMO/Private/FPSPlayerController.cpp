@@ -3,6 +3,7 @@
 
 #include "FPSPlayerController.h"
 #include "FPSCharacter.h"
+#include "MarketWidget.h"
 #include "pHUD.h"
 #include "PlayerInfoState.h"
 #include "TaccomWidget.h"
@@ -64,6 +65,45 @@ void AFPSPlayerController::SetPlayerState(APlayerInfoState* PlayerInfoState)
 	PIS = PlayerInfoState;
 }
 
+void AFPSPlayerController::UpdateMarket(UMarketDataAsset* CurrentMarket)
+{
+	if (MarketWidget)
+	{
+		MarketWidget->SetMarketDataAsset(CurrentMarket);
+		MarketWidget->SetupWidget();
+	}
+}
+
+void AFPSPlayerController::ShowMarket()
+{
+	if (IsLocalPlayerController()) {
+		if (MarketWidget) {
+			MarketWidget->SetVisibility(ESlateVisibility::Visible);
+			bMarketOpen = true;
+			SetShowMouseCursor(bMarketOpen);
+			SetIgnoreLookInput(bMarketOpen);
+			SetIgnoreMoveInput(bMarketOpen);
+			if (HUDWidget)
+				HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+	}
+}
+
+void AFPSPlayerController::HideMarket()
+{
+	if (IsLocalPlayerController()) {
+		if (MarketWidget)
+			MarketWidget->SetVisibility(ESlateVisibility::Hidden);
+		bMarketOpen = false;
+		SetShowMouseCursor(bMarketOpen);
+		SetIgnoreLookInput(bMarketOpen);
+		SetIgnoreMoveInput(bMarketOpen);		
+		if (HUDWidget)
+			HUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+
 void AFPSPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -81,6 +121,13 @@ void AFPSPlayerController::BeginPlay()
 		{
 			TaccomWidget->AddToViewport();
 			TaccomWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+
+		MarketWidget = CreateWidget<UMarketWidget>(this, pMarketWidgetClass.LoadSynchronous());
+		if(MarketWidget)
+		{
+			MarketWidget->AddToViewport();
+			MarketWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
 
 	}

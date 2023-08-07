@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "FPSPlayerController.generated.h"
 
+class UMarketDataAsset;
+class UMarketWidget;
 class APlayerInfoState;
 class UTaccomWidget;
 class AFPSCharacter;
@@ -28,9 +30,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Taccom Widget")
 			TSoftClassPtr<UTaccomWidget> pTaccomWidgetClass;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Market Widget")
+		TSoftClassPtr<UMarketWidget> pMarketWidgetClass;
+
+
 		UpHUD* HUDWidget;
 
 		UTaccomWidget* TaccomWidget;
+
+		UMarketWidget* MarketWidget;
+
+		bool bMarketOpen;
 
 		void UpdateHP(float &Health);
 
@@ -42,7 +52,12 @@ public:
 		void OpenTaccom(bool bIsOpened);
 
 		void SetPlayerState(APlayerInfoState*PlayerInfoState);
+		//Market
+		void UpdateMarket(UMarketDataAsset* CurrentMarket);
 
+		void ShowMarket();
+
+		void HideMarket();
 protected:
 
 	virtual void BeginPlay() override;

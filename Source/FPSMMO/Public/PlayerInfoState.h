@@ -54,6 +54,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Gold")
 	int GetGold();
 
+	//server SetGold
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetGold(int32 NewGold);
+
 	void SetGold(int gold);
 
 	void UpdateGold(int gold);
