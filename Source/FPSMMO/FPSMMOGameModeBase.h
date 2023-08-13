@@ -7,9 +7,14 @@
 #include "GameFramework/GameModeBase.h"
 #include "FPSMMOGameModeBase.generated.h"
 
+class AFPSGameState;
+struct FDeadPlayerInfo;
+class AFPSCharacter;
 /**
  * 
  */
+
+DECLARE_DELEGATE(FPlayerDied);
 UCLASS()
 class FPSMMO_API AFPSMMOGameModeBase : public AGameModeBase
 {
@@ -39,10 +44,39 @@ public:
 		}
 	}
 
+
+	UPROPERTY(EditAnywhere, Category = "Spawning")
+		TSubclassOf<AFPSCharacter> BP_PlayerClass;
+
+
+	FVector DetermineRespawnLocation(ETeam PlayerTeam);
+
 	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 
 		virtual void PostLogin(APlayerController* NewPlayer) override;
 
+		FPlayerDied PlayerDied;
+
+	
+		float GetRespawnTime();
+
+		void SetRespawnTime();
+
+		AFPSCharacter* player;
+
+		virtual void RestartPlayer(AController* NewPlayer) override;
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Respawning")
+		float RespawnTime;
+
+	FTimerHandle RespawnTimer;
+
+	AFPSGameState* GS;
 protected:
 		virtual void InitGameState() override;
+
+		virtual void Tick(float DeltaSeconds) override;
+
 };

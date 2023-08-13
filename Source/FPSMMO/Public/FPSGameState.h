@@ -6,6 +6,9 @@
 #include "GameFramework/GameStateBase.h"
 #include "FPSGameState.generated.h"
 
+class AFPSMMOGameModeBase;
+struct FDeadPlayerInfo;
+class AFPSCharacter;
 class ABombSite;
 class ABomb;
 /**
@@ -19,6 +22,9 @@ class FPSMMO_API AFPSGameState : public AGameStateBase
 public:
 		UPROPERTY(Replicated)
 		bool bIsBombPlanted;
+
+		UFUNCTION(Server, Reliable, WithValidation)
+			void ServerUpdateDeadPlayers(float DeltaSeconds);
 
 	UFUNCTION()
 		void BombTimerEnded(ABomb*bomb);
@@ -35,9 +41,22 @@ public:
 
 		UPROPERTY(Replicated)
 			TArray<ABombSite*>BombSites;
+
+		void SetBounty(AFPSCharacter*BountyPlayer);
+
+		void SetGameTime(float GameTime);
+
+		UPROPERTY(Replicated)
+			float GameTimeInSeconds;
+
+		UPROPERTY(Replicated)
+		TArray<FDeadPlayerInfo>DeadPlayers;
+
 private:
 	UPROPERTY(Replicated)
 	ABomb* Bomb;
+
+	AFPSMMOGameModeBase* GM;
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 

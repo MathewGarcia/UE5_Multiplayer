@@ -77,6 +77,10 @@ void ACaptureRing::IncrementRingPoints()
 	if (RingPoints < MaxRingPoints && HasAuthority()) {
 		RingPoints++;
 		UE_LOG(LogTemp, Warning, TEXT("Incrementing points: %d "), RingPoints);
+		if(RingPoints == MaxRingPoints)
+		{
+			//TODO:update the exp and gold.
+		}
 	}
 }
 

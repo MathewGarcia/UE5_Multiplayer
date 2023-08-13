@@ -8,7 +8,9 @@
 
 #include "PlayerHUD.h"
 #include "FPSCharacter.h"
+#include "MarketWidget.h"
 #include "pHUD.h"
+#include "TaccomWidget.h"
 #include "GameFramework/PlayerController.h"
 
 AMainHUD::AMainHUD()
@@ -58,21 +60,5 @@ void AMainHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	if (HUDWidget) {
-		if (player) {
-			HUDWidget->SP = player->GetShield();
-			HUDWidget->HP = player->GetHealth();
-			UE_LOG(LogTemp, Warning, TEXT("Updating Info"));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("player failed"));
 
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HUD Widget failed - DRAWHUD"));
-
-	}
 }

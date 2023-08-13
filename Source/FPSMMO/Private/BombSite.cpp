@@ -4,6 +4,7 @@
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
 #include "FPSGameState.h"
+#include "PlayerHUD.h"
 #include "Components/BoxComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -71,13 +72,14 @@ void ABombSite::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* O
 		if(player)
 		{
 			player->SetCanPlant(true);
-			AFPSPlayerController*PC= Cast<AFPSPlayerController>(player->GetController());
-			if(PC)
-			{
 				FString Key = player->GetKey("IA_Interact");
 				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Plant"), FText::FromString(Key));
-				PC->UpdateText(text);
-			}
+				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+				if (PlayerHUD) {
+					PlayerHUD->UpdateText(text);
+				}
+
+			
 		}
 	}
 }
@@ -92,12 +94,12 @@ void ABombSite::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 		if (player)
 		{
 			player->SetCanPlant(false);
-
-			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-			if (PC)
-			{
-				PC->UpdateText(FText::FromString(TEXT("")));
+			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+			if (PlayerHUD) {
+				PlayerHUD->UpdateText(FText::FromString(""));
 			}
+		
+			
 		}
 	}
 }

@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Projectile.generated.h"
 
+class AFPSCharacter;
 class UpHUD;
 class UProjectileMovementComponent;
 
@@ -35,13 +36,14 @@ public:
 
 	bool bIsShotgunPellet = false;
 
-	
+	void SetFiringPlayer(AFPSCharacter* FP);
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	UFUNCTION(Category = "Projectile")
 		void OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void PostInitializeComponents() override;
 
 	virtual void Destroyed() override;
 
@@ -65,6 +67,8 @@ private:
 	// Delay before destroying the projectile
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 		float DestroyDelay = 10.0f;
+
+	AFPSCharacter* FiringPlayer;
 
 
 

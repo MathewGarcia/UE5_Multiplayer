@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 #include "pHUD.generated.h"
 
 class APlayerInfoState;
@@ -20,17 +22,34 @@ class FPSMMO_API UpHUD : public UUserWidget
 		UpHUD(const FObjectInitializer& ObjectInitializer);
 
 public:
-	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_UpdateHealth,BlueprintReadWrite, Category = "PlayerInfo")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "PlayerInfo")
 		float HP;
 
-	UPROPERTY(EditAnywhere, ReplicatedUsing= OnRep_UpdateShield,BlueprintReadWrite,Category = "PlayerInfo")
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "PlayerInfo")
 		float SP;
 
-	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
-	void OnRep_UpdateShield(float Shield);
+	UPROPERTY(BlueprintReadOnly, Category = "Health", meta = (BindWidget))
+	UProgressBar* Health;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Shield", meta = (BindWidget))
+		UProgressBar* Shield;
+
+	UPROPERTY(BlueprintReadOnly, Category = "InformationTextBlock", meta = (BindWidget))
+		UTextBlock* InformationTextBlock;
+
+	UPROPERTY(BlueprintReadOnly, Category = "GameTimeTextBlock", meta = (BindWidget))
+		UTextBlock* GameTimeTextBlock;
+
+	UPROPERTY(BlueprintReadOnly, Category = "RespawnTimerTextBlock", meta = (BindWidget))
+		UTextBlock* RespawnTimerTextBlock;
 
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
-		void OnRep_UpdateHealth(float Health);
+	void WidgetUpdateShield(float val);
+
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
+		void WidgetUpdateHealth(float val);
+
+	void SetCharacter(AFPSCharacter* NewCharacter);
 
 	UPROPERTY()
 		AFPSCharacter* player;
@@ -44,7 +63,17 @@ public:
 	UFUNCTION()
 		void SetText(FText newText);
 
+	void ResetHUD();
 
+	//Game Info
+	FTimerHandle TimerHandle;
+	void UpdateInformation(FText NewText);
+	void ResetInformation();
+
+	void UpdateGameTime();
+	FTimerHandle GameTimeUpdateTimer;
+
+	void UpdateDeadPlayerTimer(float RespawnTimeLeft);
 private:
 	APlayerState* PS;
 	FText text;
@@ -52,6 +81,5 @@ private:
 
 protected:
 	virtual void NativeConstruct() override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
+	virtual void NativeDestruct() override;
 };

@@ -3,14 +3,17 @@
 
 #include "PlayerInfoState.h"
 #include "FPSCharacter.h"
+#include "FPSGameState.h"
 #include "Net/UnrealNetwork.h"
 
 
+//TODO:ADD A PROGRESSION SYSTEM WHERE EXPNEEDED INCREASES AN X AMOUNT
+//TODO: HAVE A SET AMOUNT OF EXP FOR KILLING SOMEONE AND AMOUNT OF GOLD. FOR WEAPON AS WELL.
 
 APlayerInfoState::APlayerInfoState()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
+	bReplicates = true;
 	CurrentLevel = 1;
 }
 
@@ -37,6 +40,7 @@ void APlayerInfoState::UpdateEXP(float EXP)
 	if(GetEXP() >= EXPNeeded)
 	{
 		LevelUp();
+		EXPNeeded = EXPNeeded * 2.25;
 	}
 }
 
@@ -52,27 +56,14 @@ void APlayerInfoState::SetEXP(float EXP)
 
 void APlayerInfoState::UpgradeShield()
 {
-	 player = Cast<AFPSCharacter>(GetPawn());
-	if (player) {
-		switch (CurrentLevel)
-		{
-		case 1:player->SetShield(100);
-			player->MaxShield = 100;
-			return;
-		case 2:player->SetShield(200);
-			player->MaxShield = 200;
-			return;
-		case 3: player->SetShield(300);
-			player->MaxShield = 300;
-			return;
-		case 4: player->SetShield(400);
-			player->MaxShield = 400;
-			return;
-		case 5: player->SetShield(500);
-			player->MaxShield = 500;
-			return;
-		default: return;
-		}
+	player = Cast<AFPSCharacter>(GetPawn());
+	if (player)
+	{
+		// Increase the MaxShield by 25%
+		player->MaxShield = player->MaxShield * 1.25;
+
+		// Set the current shield to the new MaxShield
+		player->ServerSetShield(player->MaxShield);
 	}
 	else
 	{
@@ -141,6 +132,12 @@ void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(APlayerInfoState, CurrentLevel);
 	DOREPLIFETIME(APlayerInfoState, bInCombat);
 	DOREPLIFETIME(APlayerInfoState, TeamId);
+	DOREPLIFETIME(APlayerInfoState, Gold);
+	DOREPLIFETIME(APlayerInfoState, Kills);
+	DOREPLIFETIME(APlayerInfoState, ConsecutiveKills);
+	DOREPLIFETIME(APlayerInfoState, Deaths);
+
+
 }
 
 void APlayerInfoState::BeginPlay()
@@ -148,6 +145,7 @@ void APlayerInfoState::BeginPlay()
 	Super::BeginPlay();
 
 	player = Cast<AFPSCharacter>(GetPawn());
+	GS	= GetWorld()->GetGameState<AFPSGameState>();
 
 }
 
@@ -155,13 +153,10 @@ void APlayerInfoState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-
-		
 			if (!bInCombat)
 			{
 				RechargeShield();
 			}
-		
 	
 }
 
@@ -189,4 +184,36 @@ void APlayerInfoState::OnRep_InCombat()
 void APlayerInfoState::SetPlayerController(APlayerController* Controller)
 {
 	PC = Controller;
+}
+
+AFPSCharacter* APlayerInfoState::GetPlayer()
+{
+	return player;
+}
+
+void APlayerInfoState::SetPlayer(AFPSCharacter* Player)
+{
+	player = Player;
+}
+
+void APlayerInfoState::UpdateKills()
+{
+	Kills++;
+	ConsecutiveKills++;
+	UE_LOG(LogTemp, Warning, TEXT("Updated Kills %d"),Kills);
+
+	//if the kills incremented 3 times and the player has not died yet, we want to set off the bounty.
+	if(ConsecutiveKills >= 3)
+	{
+		if(GS && player)
+		{
+			GS->SetBounty(player);
+		}
+	}
+}
+
+void APlayerInfoState::UpdateDeath()
+{
+	Deaths++;
+	ConsecutiveKills = 0;
 }

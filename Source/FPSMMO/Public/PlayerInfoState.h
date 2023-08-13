@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerState.h"
 #include "PlayerInfoState.generated.h"
 
+class AFPSGameState;
 enum class ETeam : uint8;
 class AFPSCharacter;
 /**
@@ -23,6 +24,8 @@ public:
 
 	APlayerInfoState();
 
+	FName PlayerName = "MAT";
+
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	int GetPlayerLevel();
 
@@ -30,7 +33,7 @@ public:
 
 	void UpdateEXP(float EXP);
 
-	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
+	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")	
 	float GetEXP();
 
 	void SetEXP(float EXP);
@@ -49,8 +52,6 @@ public:
 
 	void RechargeShield();
 
-	AFPSCharacter* player;
-
 	UFUNCTION(BlueprintCallable, Category="Gold")
 	int GetGold();
 
@@ -62,11 +63,35 @@ public:
 
 	void UpdateGold(int gold);
 
-	int Gold;
 
 	void SetPlayerController(APlayerController* Controller);
 
+
+	AFPSCharacter*GetPlayer();
+
+	void SetPlayer(AFPSCharacter* Player);
+
+	void UpdateKills();
+	void UpdateDeath();
+
+private:
+	UPROPERTY(Replicated)
+		int Gold;
+
 	APlayerController* PC;
+
+	AFPSCharacter* player;
+
+	UPROPERTY(Replicated)
+	int32 Kills = 0;
+
+	UPROPERTY(Replicated)
+	int32 Deaths = 0;
+
+	UPROPERTY(Replicated)
+	int32 ConsecutiveKills = 0;
+
+	AFPSGameState* GS;
 protected:
 
 	UPROPERTY(EditAnywhere,ReplicatedUsing = OnRep_Level, Category = "PlayerInfo")
@@ -82,7 +107,7 @@ protected:
 		const int MAX_LEVEL = 5;
 
 		UPROPERTY(BlueprintReadWrite, Category = "PlayerInfoState")
-		float EXPNeeded = 10;
+		float EXPNeeded = 100;
 
 
 	//replicated functions

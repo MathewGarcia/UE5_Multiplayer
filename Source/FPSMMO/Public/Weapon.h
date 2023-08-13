@@ -128,7 +128,9 @@ public:
 
 	float DownwardKick;
 
+	int32 GetWeaponEXP();
 
+	int32 GetWeaponGold();
 
 	FRotator CurrentRecoil = FRotator::ZeroRotator;
 
@@ -149,5 +151,12 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+private:
+	UPROPERTY(Replicated, EditAnywhere, Category = "Weapon")
+		int32 WeaponEXP;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = "Weapon")
+		int32 WeaponGold;
 
 };

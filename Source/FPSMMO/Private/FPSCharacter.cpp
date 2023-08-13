@@ -5,11 +5,10 @@
 
 #include "Bomb.h"
 #include "BombSite.h"
-#include "GameFramework/SpringArmComponent.h"
+#include "DeadPlayerInfo.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
-#include "GameFramework/InputSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Projectile.h"
 #include "Engine.h"
@@ -17,7 +16,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SceneComponent.h"
 #include "PlayerHUD.h"
-#include "pHUD.h"
 #include "FPSPlayerController.h"
 #include "PlayerInfoState.h"
 #include "EnhancedInputSubsystems.h"
@@ -26,10 +24,11 @@
 #include "DrawDebugHelpers.h"
 #include "FPSGameState.h"
 #include "InputMappingContext.h"
-#include "TaccomWidget.h"
-#include "TeamEnum.h"
-#include "GameFramework/InputSettings.h"
+#include "pHUD.h"
+#include "FPSMMO/FPSMMOGameModeBase.h"
 
+//TODO: SPAWNING WEAPON IN THE PLAYER AND THE GAME MODE SEEMS REDUNDANT.
+//TODO:SOMETIMES PLAYER STARTS HITCHING IN CERTAIN AREAS WHEN SPAWNED IN
 
 // Sets default values
 AFPSCharacter::AFPSCharacter()
@@ -68,14 +67,13 @@ AFPSCharacter::AFPSCharacter()
 		CrouchEyeOffset = FVector(0.f);
 		CrouchSpeed = 12.f;
 
-		MaxShield = 100;
-
 	//set bcancrouch to true
 		GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 
 		SlideStartTime = 0;
 
 		DefaultFOV = 90;
+
 }
 
 void AFPSCharacter::Move(const FInputActionValue& Value)
@@ -130,7 +128,7 @@ void AFPSCharacter::SetCombatStatus(AController* EventInstigator)
 
 		if (instigatorPlayerState)
 		{
-			instigatorPlayerState->player = Cast<AFPSCharacter>(instigatorPlayerState->GetPawn());
+			instigatorPlayerState->SetPlayer(Cast<AFPSCharacter>(instigatorPlayerState->GetPawn()));
 			if (instigatorPlayerState->GetInCombat() == true) {
 				//clear previous timer
 				if (GetWorld()->GetTimerManager().TimerExists(instigatorPlayerState->RechargeHandle)) {
@@ -207,7 +205,7 @@ void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 	
 }
 
-void AFPSCharacter::OnRep_Sprint()
+void AFPSCharacter::OnRep_Sprint() const
 {
 	if(bSprint)
 	{
@@ -584,7 +582,7 @@ void AFPSCharacter::UpdateWeaponTransform(float DeltaTime)
 bool AFPSCharacter::CanFire()
 {
 	if(FPSPC)
-	if (CurrentWeapon && CurrentWeapon->AmmoInClip != 0 && bCanFire && !CurrentWeapon->bIsReloading && !FPSPC->bMarketOpen)
+	if (CurrentWeapon && CurrentWeapon->AmmoInClip != 0 && bCanFire && !CurrentWeapon->bIsReloading && !GetPlayerHUD()->GetMarketOpen())
 	{
 		return true;
 	}
@@ -668,10 +666,7 @@ FString AFPSCharacter::GetKey(const FString& ActionName)
 
 void AFPSCharacter::OpenTaccom(const FInputActionValue& InputActionValue)
 {
-	if(FPSPC)
-	{
-		FPSPC->OpenTaccom(InputActionValue.Get<bool>());
-	}
+		GetPlayerHUD()->OpenTaccom(InputActionValue.Get<bool>());
 }
 
 void AFPSCharacter::ServerBombInteraction_Implementation()
@@ -738,8 +733,29 @@ bool AFPSCharacter::ServerBombInteraction_Validate()
 void AFPSCharacter::StopPlanting()
 {
 	ServerSetBombInteraction(EBombInteractionType::None);
-	UE_LOG(LogTemp, Warning, TEXT("Stopped interacting with Bomb"));
+	GetController()->SetIgnoreMoveInput(false);
 }
+
+void AFPSCharacter::SetDeathEXP(int32 NewDeathEXP)
+{
+	DeathEXP = NewDeathEXP;
+}
+
+void AFPSCharacter::SetDeathGold(int32 NewDeathGold)
+{
+	DeathGold = NewDeathGold;
+}
+
+int32 AFPSCharacter::GetDeathEXP()
+{
+	return DeathEXP;
+}
+
+int32 AFPSCharacter::GetDeathGold()
+{
+	return DeathGold;
+}
+
 
 void AFPSCharacter::ServerSpawnWeapon_Implementation(TSubclassOf<AWeapon> WeaponClass)
 {
@@ -774,23 +790,19 @@ void AFPSCharacter::ServerSetBombInteraction_Implementation(EBombInteractionType
 		{
 			// Interaction was stopped before the timer ran out. Clear the timer.
 			GetWorld()->GetTimerManager().ClearTimer(BombInteractionTimerHandle);
-				FPSPC->SetIgnoreMoveInput(false);
 		}
 			// Started interacting. Set the timer.
 		else if (InteractionType == EBombInteractionType::Planting) {
 				GetWorld()->GetTimerManager().SetTimer(BombInteractionTimerHandle, this, &AFPSCharacter::ServerBombInteraction, BombInteractionTime, false);
-				FPSPC->SetIgnoreMoveInput(true);
 		}
 		else if(InteractionType == EBombInteractionType::Defusing)
 			{
-
 			for (ABombSite* BombSite : GS->BombSites)
 			{
 				if (BombSite->GetPlantedBomb() && BombSite->GetPlantedBomb()->IsOverlappingActor(this))
 				{
 					BombSite->GetPlantedBomb()->MulticastDefusing();
 					GetWorld()->GetTimerManager().SetTimer(BombInteractionTimerHandle, this, &AFPSCharacter::ServerBombInteraction, 7.0f, false);
-					FPSPC->SetIgnoreMoveInput(true);
 					break;
 				}
 				}
@@ -821,17 +833,15 @@ void AFPSCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+
+	if (HasAuthority())
+	{
+		ensure(GetOwner() != nullptr && "Character should have an owner on the server.");
+	}
 	bCanFire = true;
 
-	if (SpawningWeapon && HasAuthority()) {
-			// Create an instance of the weapon object
-			AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(SpawningWeapon);
-			Weapon->SetActorLocation(GetActorLocation());
-			EquipWeapon(Weapon);
-	}
-	
 
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+		APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (PC)
 	{
 		FPSPC = Cast<AFPSPlayerController>(PC);
@@ -839,51 +849,91 @@ void AFPSCharacter::BeginPlay()
 
 	if (FPSPC && FPSPC->IsLocalPlayerController())
 	{
-		HUDWidget = FPSPC->HUDWidget;
+		GetPlayerHUD()->UpdateText(FText::FromString(TEXT("")));
 	}
+
 	if (HasAuthority()) {
-		SetShield(100);
-		SetHealth(100);
+		SetShield(MaxShield);
+		SetHealth(MaxHP);
 	}
 
 	DefaultWeaponTransform = FPSMeshArms->GetRelativeTransform();
 	NormalWeaponRotation = WeaponMesh->GetRelativeRotation(); 
 
 	GS = GetWorld()->GetGameState<AFPSGameState>();
+
+
+
 }
 
 void AFPSCharacter::SetHealth(float hp)
 {
-	if(GetLocalRole() == ROLE_Authority)
+	if(HasAuthority())
 	{
 		HP = hp;
+		if (HP <= 0)
+		{
+			if (CurrentWeapon->GetPickedUp()) {
+				MulticastDropWeapon(CurrentWeapon);
+			}
+			APlayerInfoState* PS = Cast<APlayerInfoState>(GetPlayerState());
+			
+			if(PS)
+			{
+				PS->UpdateDeath();
+			}
+			if(LastDamagingPlayer)
+			{
+				APlayerInfoState* EnemyPS = Cast<APlayerInfoState>(LastDamagingPlayer->GetPlayerState<APlayerInfoState>());
+				if(EnemyPS)
+				{
+					EnemyPS->UpdateKills();
+				}
+			}
+
+		}
 		OnRep_Health();
-	}
-
-}
-
-void AFPSCharacter::SetShield(float shield)
-{
-	if (GetLocalRole() == ROLE_Authority) {
-		Shield = FMath::Clamp(shield, 0.0f, MaxShield);
-		OnRep_Shield();
 	}
 	
 }
 
+void AFPSCharacter::SetShield(float shield)
+{
+	if (HasAuthority()) {
+		Shield = FMath::Clamp(shield, 0.0f, MaxShield);
+	}
+}
+
+void AFPSCharacter::ServerSetHealth_Implementation(float val)
+{
+	SetHealth(val);
+}
+
+bool AFPSCharacter::ServerSetHealth_Validate(float val)
+{
+	return true;
+}
+
+void AFPSCharacter::ServerSetShield_Implementation(float val)
+{
+	SetShield(val);
+}
+
+bool AFPSCharacter::ServerSetShield_Validate(float val)
+{
+	return true;
+}
+
 void AFPSCharacter::OnRep_Health()
 {
-	UpdateHealth();
-	if (GetHealth() <= 0)
+	if(HP <= 0)
 	{
 		KilledBy(LastDamagingPlayer);
-
 	}
 }
 
 void AFPSCharacter::OnRep_Shield()
 {
-	UpdateShield(Shield);
 }
 
 void AFPSCharacter::SetCanOpenMarket(bool val)
@@ -947,6 +997,7 @@ void AFPSCharacter::OnRep_CurrentWeapon()
 			if (!CurrentWeapon->bIsAttached) {
 				CurrentWeapon->AttachToComponent(thirdPersonPlayerMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
 				CurrentWeapon->bIsAttached = true;
+
 			}
 			//hide previous weapon?
 			//update mesh?
@@ -966,19 +1017,22 @@ void AFPSCharacter::OnRep_CurrentWeapon()
 void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotator SpawnRotation)
 {
 	FActorSpawnParameters spawnParameters;
-	spawnParameters.Instigator = GetInstigator();
+	spawnParameters.Instigator = this;
 	spawnParameters.Owner = this;
 
-	FVector Offset = SpawnRotation.Vector() * 100;  // Change '100' to whatever offset distance you want
+	FVector Offset = SpawnRotation.Vector() * 25;  // Change '100' to whatever offset distance you want
 	SpawnLocation += Offset;
 	SpawnRotation.Normalize();
 
 	if (CurrentWeapon) {
 		if (AProjectile* bullet = GetWorld()->SpawnActor<AProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, spawnParameters))
 		{
+			MoveIgnoreActorAdd(bullet);
+
 			if (CurrentWeapon->bIsShotgun)
 			{
 				bullet->bIsShotgunPellet = true;
+
 			}
 			UPrimitiveComponent* BulletPrimitive = Cast<UPrimitiveComponent>(bullet->GetRootComponent());
 			if (BulletPrimitive)
@@ -986,21 +1040,21 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 				// Ignore the character
 				BulletPrimitive->MoveIgnoreActors.Add(this);
 			}
-
-			bullet->SetInstigator(this);
-			bullet->SetOwner(this);
+		
 			bullet->GetCollisionComponent()->IgnoreActorWhenMoving(this, true);
+
 			FVector LaunchDirection = SpawnRotation.Vector();
 			LaunchDirection *= CurrentWeapon->WeaponDistance;
 			bullet->FireInDirection(LaunchDirection);
 
-
-			// Calculate the end point of the bullet's trajectory
-			FVector BulletTrajectoryEndPoint = SpawnLocation + (LaunchDirection * 10000); // Change this multiplier as needed depending on how far you want the trajectory to go
-
-			// Draw the debug line following the bullet's trajectory
-			DrawDebugLine(GetWorld(), SpawnLocation, BulletTrajectoryEndPoint, FColor::Red, true, 1, 0, 2);
+			//
+			// // Calculate the end point of the bullet's trajectory
+			// FVector BulletTrajectoryEndPoint = SpawnLocation + (LaunchDirection * 10000); // Change this multiplier as needed depending on how far you want the trajectory to go
+			//
+			// // Draw the debug line following the bullet's trajectory
+			// DrawDebugLine(GetWorld(), SpawnLocation, BulletTrajectoryEndPoint, FColor::Red, true, 1, 0, 2);
 		}
+		if(bIsADS)
 		ApplyRecoil();
 	}
 
@@ -1011,12 +1065,18 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 FTransform AFPSCharacter::GetFiringPosition()
 {
 		// Calculate SpawnLocation and SpawnRotation as you were doing previously
-		FVector SpawnLocation = GetActorLocation() + (GetControlRotation().Vector() * 100.0f) + (GetActorUpVector() * 50.0f);
-		FRotator SpawnRotation = GetControlRotation();
+	FVector SpawnLocation;
+		FRotator SpawnRotation;
+
+		GetActorEyesViewPoint(SpawnLocation, SpawnRotation);
 
 		return FTransform(SpawnRotation, SpawnLocation);
+}
 
-	
+void AFPSCharacter::DestroyCharacter()
+{
+	if(HasAuthority())
+	Destroy();
 }
 
 
@@ -1026,10 +1086,28 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 		APlayerInfoState* instigatorPlayerState = Cast<APlayerInfoState>(EventInstigator->PlayerState);
 		if (instigatorPlayerState)
 		{
-			instigatorPlayerState->UpdateEXP(10);
-			instigatorPlayerState->UpdateGold(5);
+			instigatorPlayerState->UpdateEXP(CurrentWeapon->GetWeaponEXP()+DeathEXP);
+			instigatorPlayerState->UpdateGold(CurrentWeapon->GetWeaponGold()+DeathGold);
 		}
 	}
+
+	UCharacterMovementComponent* MovementComponent = Cast<UCharacterMovementComponent>(GetMovementComponent());
+	if (MovementComponent)
+	{
+		MovementComponent->StopMovementImmediately();
+	}
+	
+	thirdPersonPlayerMesh->SetAllBodiesSimulatePhysics(true);
+	thirdPersonPlayerMesh->SetSimulatePhysics(true);
+	thirdPersonPlayerMesh->WakeAllRigidBodies();
+	thirdPersonPlayerMesh->bBlendPhysics = true;
+
+	SetActorEnableCollision(false);
+	FPSMeshArms->SetHiddenInGame(true);
+	WeaponMesh->SetHiddenInGame(true);
+
+	GetWorldTimerManager().SetTimer(DestructionTimer, this, &AFPSCharacter::DestroyCharacter, TimeBeforeDestroy, false);
+
 }
 
 void AFPSCharacter::Interact()
@@ -1037,24 +1115,27 @@ void AFPSCharacter::Interact()
 	//if we arent interacting with the bomb site.
 	UE_LOG(LogTemp, Warning, TEXT("CanPlant: %s"), CanPlant ? TEXT("TRUE") : TEXT("FALSE"));
 
+	if (IsButtonPressed()) {
+		if (!CanPlant) {
 
-	if (!CanPlant) {
+			HandleInteract();
 
-		HandleInteract();
-
-		if (FPSPC && FPSPC->IsPlayerController()) {
-			if (IsButtonPressed()) {
-				if (bCanOpenMarket)
-				{
-					FPSPC->bMarketOpen ? FPSPC->HideMarket() : FPSPC->ShowMarket();
-					FPSPC->UpdateText(FText::FromString(""));
-				}
-				else
-				{
-					FPSPC->HideMarket();
+			if (FPSPC && FPSPC->IsPlayerController()) {
+				if (IsButtonPressed()) {
+					APlayerHUD* PHUD = GetPlayerHUD();
+					if (bCanOpenMarket && PHUD)
+					{
+						PHUD->GetMarketOpen() ? PHUD->HideMarket() : PHUD->ShowMarket();
+						PHUD->UpdateText(FText::FromString(""));
+					}
+					else
+					{
+						PHUD->HideMarket();
+					}
 				}
 			}
 		}
+	}
 
 		if (!IsButtonPressed())
 		{
@@ -1067,7 +1148,7 @@ void AFPSCharacter::Interact()
 			return;
 		}
 
-	}
+	
 
 	
 
@@ -1080,15 +1161,18 @@ void AFPSCharacter::Interact()
 
 				StartCrouch();
 				ServerSetBombInteraction(EBombInteractionType::Planting);
+				GetController()->SetIgnoreMoveInput(true);
+
 			}
 			// Otherwise, if we are planting, then stop planting and uncrouch.
 			else if ( (CanPlant && BombInteractionType == EBombInteractionType::Planting) || (BombInteractionType == EBombInteractionType::Defusing && GS->bIsBombPlanted)) {
 				StopPlanting();
 				UnCrouch();
 			}
-			//for defusing not done yet.
 			else if (GS->bIsBombPlanted && BombInteractionType == EBombInteractionType::None)
 			{
+				GetController()->SetIgnoreMoveInput(true);
+
 				for(ABombSite* BombSite : GS->BombSites)
 				{
 					if( BombSite->GetPlantedBomb()  && BombSite->GetPlantedBomb()->IsOverlappingActor(this))
@@ -1136,6 +1220,33 @@ void AFPSCharacter::HandleInteract_Implementation()
 				ServerEquipWeapon(WeaponCollided);
 		}
 	}
+}
+
+void AFPSCharacter::DetachFromControllerPendingDestroy()
+{
+	AController* ControllerRef = GetController();
+	UE_LOG(LogTemp, Warning, TEXT("In DetatchFromControllerPendingDestroy Controller: %s"), *GetNameSafe(ControllerRef));
+
+	Super::DetachFromControllerPendingDestroy();
+
+
+	if(ControllerRef)
+	{
+		AFPSMMOGameModeBase* GM = Cast<AFPSMMOGameModeBase>(GetWorld()->GetAuthGameMode());
+		if (GM && GS)
+		{
+			FDeadPlayerInfo DeadPlayer(ControllerRef, GM->GetRespawnTime()); 
+			GS->DeadPlayers.Add(DeadPlayer);
+		}
+	}
+
+}
+
+void AFPSCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	UE_LOG(LogTemp, Warning, TEXT("Possessed by: %s"), *NewController->GetName());
+	UE_LOG(LogTemp, Warning, TEXT("IsLocallyControlled: %s"), IsLocallyControlled() ? TEXT("true") : TEXT("false"));
 }
 
 // Called every frame
@@ -1360,7 +1471,6 @@ void AFPSCharacter::Fire(FTransform SocketTransform)
 void AFPSCharacter::ServerStartFire_Implementation(FTransform SocketTransform)
 {
 	Fire(SocketTransform);
-	ApplyRecoil();
 }
 
 bool AFPSCharacter::ServerStartFire_Validate(FTransform SocketTransform)
@@ -1378,46 +1488,12 @@ float AFPSCharacter::GetShield()
 }
 void AFPSCharacter::UpdateHealth()
 {
-	if (IsLocallyControlled()) {
-		if (GEngine) {
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("Health: " + FString::Printf(TEXT("%f"), GetHealth())));
-
-		}
-
-		if (FPSPC)
-		{
-			float NHP = GetHealth();
-			FPSPC->UpdateHP(NHP);
-		}
-
-		if(GetHealth() <= 0)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("You are Dead."));
-		
-		}
-	}
 	
 }
 
 void AFPSCharacter::UpdateShield(float SP)
 {
-	if (IsLocallyControlled()) {
 
-		Shield = SP;
-
-		if (GEngine) {
-
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("You have  " + FString::Printf(TEXT("%f shield remaining"), GetShield())));
-
-		}
-
-
-		if (FPSPC)
-		{
-			float NSP = GetShield();
-			FPSPC->UpdateShield(NSP);
-		}
-	}
 }
 
 void AFPSCharacter::EquipWeaponOnServer(AWeapon* Weapon)
@@ -1501,15 +1577,6 @@ void AFPSCharacter::MulticastOnWeaponEquipped_Implementation(AWeapon* WeaponToEq
 	}
 }
 
-void AFPSCharacter::SetClientSideWeapon(AWeapon* Weapon)
-{
-	if (Weapon)
-	{
-		//set the weapon mesh
-		WeaponMesh = Weapon->WeaponMesh;
-	}
-}
-
 AWeapon* AFPSCharacter::GetCurrentWeapon()
 {
 	return CurrentWeapon;
@@ -1517,18 +1584,17 @@ AWeapon* AFPSCharacter::GetCurrentWeapon()
 
 APlayerHUD* AFPSCharacter::GetPlayerHUD()
 {
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
-	if (PC)
+	if (FPSPC)
 	{
-		PC->ClientSetHUD(APlayerHUD::StaticClass());
-		APlayerHUD* PlayerHUD = Cast<APlayerHUD>(PC->GetHUD());
+		APlayerHUD* PlayerHUD = Cast<APlayerHUD>(FPSPC->GetHUD());
 		return PlayerHUD;
 	}
 	return nullptr;
 }
 float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	LastDamagingPlayer = EventInstigator;
+	
+		LastDamagingPlayer = EventInstigator;
 
 		if (GetShield() > 0) {
 			float damageApplied = GetShield() - DamageTaken;
@@ -1536,16 +1602,13 @@ float AFPSCharacter::TakeDamage(float DamageTaken, struct FDamageEvent const& Da
 			SetCombatStatus(EventInstigator);
 			return damageApplied;
 		}
-		else
-		{
-			float damageApplied = GetHealth() - DamageTaken;
-			SetHealth(damageApplied);
-			SetCombatStatus(EventInstigator);
 
-			return damageApplied;
-		}
+		float damageApplied = GetHealth() - DamageTaken;
+		SetHealth(damageApplied);
+		SetCombatStatus(EventInstigator);
 
-	
+		return damageApplied;
+
 }
 
 void AFPSCharacter::HandleReloadProgress(float DeltaTime)
@@ -1582,4 +1645,7 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, CanPlant);
 	DOREPLIFETIME(AFPSCharacter, BombInteractionType);
 	DOREPLIFETIME(AFPSCharacter, LastDamagingPlayer);
+	DOREPLIFETIME(AFPSCharacter, MaxShield);
+	DOREPLIFETIME(AFPSCharacter, DeathEXP);
+	DOREPLIFETIME(AFPSCharacter, DeathGold);
 }

@@ -4,6 +4,7 @@
 #include "Weapon.h"
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
+#include "PlayerHUD.h"
 #include "Components/BoxComponent.h"
 
 #define LOCTEXT_NAMESPACE "Gameplay"
@@ -64,14 +65,13 @@ void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 	if(player)
 	{
-		AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(player->GetController());
-		if(FPSPC)
-		{
+	
 			FString Key = player->GetKey("IA_Interact");
 			FText text = FText::Format(LOCTEXT("WeaponPickUpPrompt", "Press {0} to pick up {1}"), FText::FromString(Key), FText::FromString(WeaponName));
-
-			FPSPC->UpdateText(text);
-		}
+			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+			if (PlayerHUD) {
+				PlayerHUD->UpdateText(text);
+			}
 		player->bInCollision = true;
 		player->WeaponCollided = this;
 	}
@@ -84,13 +84,12 @@ void AWeapon::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 	if (player)
 	{
-		AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(player->GetController());
-		if (FPSPC)
-		{
+		
 			FText text = FText::FromString(TEXT(""));
-			FPSPC->UpdateText(text);
-		}
-
+						APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+				if (PlayerHUD) {
+					PlayerHUD->UpdateText(text);
+				}
 		player->WeaponCollided = nullptr;
 		player->bInCollision = false;
 	}
@@ -104,6 +103,16 @@ void AWeapon::KillActor_Implementation()
 void AWeapon::ResetReload()
 {
 	bIsReloading = false;
+}
+
+int32 AWeapon::GetWeaponEXP()
+{
+	return WeaponEXP;
+}
+
+int32 AWeapon::GetWeaponGold()
+{
+	return WeaponGold;
 }
 
 // Called when the game starts or when spawned
@@ -221,4 +230,5 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, bIsReloading);
 	DOREPLIFETIME(AWeapon, bIsAttached);
 	DOREPLIFETIME(AWeapon, WeaponSpread);
+	DOREPLIFETIME(AWeapon, WeaponEXP);
 }

@@ -23,41 +23,13 @@ class FPSMMO_API AFPSPlayerController : public APlayerController
 public:
 		AFPSPlayerController();
 
-
-		UPROPERTY(EditDefaultsOnly, Category = "pHUDClass")
-			TSoftClassPtr<UpHUD> pHUDClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Taccom Widget")
-			TSoftClassPtr<UTaccomWidget> pTaccomWidgetClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Market Widget")
-		TSoftClassPtr<UMarketWidget> pMarketWidgetClass;
-
-
-		UpHUD* HUDWidget;
-
-		UTaccomWidget* TaccomWidget;
-
-		UMarketWidget* MarketWidget;
-
-		bool bMarketOpen;
-
-		void UpdateHP(float &Health);
-
-		void UpdateShield(float &Shield);
-
-		void UpdateText(FText text);
-
 		AFPSCharacter* player;
-		void OpenTaccom(bool bIsOpened);
 
 		void SetPlayerState(APlayerInfoState*PlayerInfoState);
-		//Market
-		void UpdateMarket(UMarketDataAsset* CurrentMarket);
 
-		void ShowMarket();
+		UFUNCTION(Client, Reliable)
+			void ClientUpdateRespawnTime(float RespawnTimeLeft);
 
-		void HideMarket();
 protected:
 
 	virtual void BeginPlay() override;

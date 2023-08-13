@@ -6,7 +6,9 @@
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
 #include "MarketWidget.h"
+#include "PlayerHUD.h"
 #include "Components/BoxComponent.h"
+
 
 #define LOCTEXT_NAMESPACE "Gameplay"
 
@@ -31,11 +33,12 @@ AMarketActor::AMarketActor()
 
 void AMarketActor::SetupMarket()
 {
-	AFPSPlayerController* PC = Cast<AFPSPlayerController>(GetWorld()->GetFirstPlayerController());
-	if (PC)
-	{
-		UE_LOG(LogTemp, Error, TEXT("Set up market"));
-		PC->UpdateMarket(MarketDataAsset);
+	if (GetWorld()) {
+		AFPSCharacter* player = Cast<AFPSCharacter>(GetWorld()->GetFirstPlayerController()->GetPawn());
+		if (player && player->GetPlayerHUD())
+		{
+			player->GetPlayerHUD()->UpdateMarket(MarketDataAsset);
+		}
 	}
 
 
@@ -47,7 +50,9 @@ void AMarketActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SetupMarket();
+	FTimerHandle Timer;
+
+	GetWorld()->GetTimerManager().SetTimer(Timer, this, &AMarketActor::SetupMarket, 2.f,false);
 }
 
 void AMarketActor::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -59,13 +64,14 @@ void AMarketActor::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 		if(player)
 		{
 			player->SetCanOpenMarket(true);
-			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-			if (PC)
-			{
+			
 				FString Key = player->GetKey("IA_Interact");
 				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Open Market"), FText::FromString(Key));
-				PC->UpdateText(text);
-			}
+				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+				if (PlayerHUD) {
+					PlayerHUD->UpdateText(text);
+				}
+			
 		}
 	}
 }
@@ -82,11 +88,11 @@ void AMarketActor::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 		if(player)
 		{
 			player->SetCanOpenMarket(false);
-			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-			if (PC)
-			{
-				PC->UpdateText(FText::FromString(""));
+			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+			if (PlayerHUD) {
+				PlayerHUD->UpdateText(FText::FromString(""));
 			}
+
 		}
 	}
 }

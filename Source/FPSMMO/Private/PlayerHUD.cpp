@@ -3,7 +3,10 @@
 
 #include "PlayerHUD.h"
 #include "FPSCharacter.h"
+#include "FPSPlayerController.h"
+#include "MarketWidget.h"
 #include "pHUD.h"
+#include "TaccomWidget.h"
 #include "GameFramework/PlayerController.h"
 #include "Blueprint/UserWidget.h"
 
@@ -12,78 +15,128 @@ APlayerHUD::APlayerHUD()
 
 }
 
-void APlayerHUD::UpdateHealth()
+void APlayerHUD::UpdateText(FText text)
 {
-
-
+	if (HUDWidget)
+	{
+		HUDWidget->SetText(text);
+		HUDWidget->UpdateText();
+	}
 }
 
-void APlayerHUD::UpdateShield()
+void APlayerHUD::OpenTaccom(bool bIsOpened)
 {
-	
+	if (bIsOpened)
+	{
+		TaccomWidget->SetVisibility(ESlateVisibility::Visible);
+		HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+	else
+	{
+		TaccomWidget->SetVisibility(ESlateVisibility::Hidden);
+		HUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
 
+}
+//TODO: HIDE AFTER A FEW SECONDS TIMER.
+
+void APlayerHUD::UpdateGameInfoText(FText NewText)
+{
+	if(HUDWidget)
+	{
+		HUDWidget->UpdateInformation(NewText);
+	}
+}
+
+void APlayerHUD::UpdateGameTimeText(FText NewText)
+{
+	if(HUDWidget)
+	{
+		HUDWidget->UpdateGameTime();
+	}
+}
+
+void APlayerHUD::UpdateRespawnTime(float RespawnTimeLeft)
+{
+	if(HUDWidget)
+	{
+		HUDWidget->UpdateDeadPlayerTimer(RespawnTimeLeft);
+	}
 }
 
 void APlayerHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//APlayerController* PC = GetOwningPlayerController();
-	//player = Cast<AFPSCharacter>(PC->GetPawn());
+	FPSPC = Cast<AFPSPlayerController>(GetOwningPlayerController());
 
+	HUDWidget = CreateWidget<UpHUD>(GetWorld(), pHUDClass.LoadSynchronous());
+	player = Cast<AFPSCharacter>(GetOwningPawn());
 
-	//	if (pHUDClass)
-	//	{
-	//		HUDWidget = CreateWidget<UUserWidget>(PC, pHUDClass.LoadSynchronous());
-	//		if (HUDWidget) {
-	//			HUDWidget->AddToViewport();
-	//			if (PC) {
-	//				if (player) {
-	//					 UHUDWidget = Cast<UpHUD>(HUDWidget);
-	//					UHUDWidget->OnRep_UpdateHealth(player->GetHealth());
-	//					UHUDWidget->OnRep_UpdateShield(player->GetShield());
-	//				}
+	if (HUDWidget) {
+		HUDWidget->AddToViewport();
+	}
 
-	//			}
-	//			else
-	//			{
-	//				UE_LOG(LogTemp, Warning, TEXT("PC failed"));
+	TaccomWidget = CreateWidget<UTaccomWidget>(GetWorld(), pTaccomWidgetClass.LoadSynchronous());
+	if (TaccomWidget)
+	{
+		TaccomWidget->AddToViewport();
+		TaccomWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
 
-	//			}
-	//		}
-	//		else
-	//		{
-	//			UE_LOG(LogTemp, Warning, TEXT("HUD Widget failed - begin play"));
+	MarketWidget = CreateWidget<UMarketWidget>(GetWorld(), pMarketWidgetClass.LoadSynchronous());
+	if (MarketWidget)
+	{
+		MarketWidget->AddToViewport();
+		MarketWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
 
-	//		}
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("pHUDClass failed"));
+}
+void APlayerHUD::UpdateMarket(UMarketDataAsset* CurrentMarket)
+{
+	if (MarketWidget)
+	{
+		MarketWidget->SetMarketDataAsset(CurrentMarket);
+		MarketWidget->SetupWidget();
+	}
+}
 
-	//	}
-	//
+void APlayerHUD::ShowMarket()
+{
+		if (MarketWidget) {
+			MarketWidget->SetVisibility(ESlateVisibility::Visible);
+			if (FPSPC) {
+				bMarketOpen = true;
+				FPSPC->SetShowMouseCursor(bMarketOpen);
+				FPSPC->SetIgnoreLookInput(bMarketOpen);
+				FPSPC->SetIgnoreMoveInput(bMarketOpen);
+			}
+			if (HUDWidget)
+				HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+		}
+}
+
+void APlayerHUD::HideMarket()
+{
+	
+		if (MarketWidget)
+			MarketWidget->SetVisibility(ESlateVisibility::Hidden);
+		if (FPSPC) {
+			bMarketOpen = false;
+			FPSPC->SetShowMouseCursor(bMarketOpen);
+			FPSPC->SetIgnoreLookInput(bMarketOpen);
+			FPSPC->SetIgnoreMoveInput(bMarketOpen);
+		}
+		if (HUDWidget)
+			HUDWidget->SetVisibility(ESlateVisibility::Visible);
+}
+
+bool APlayerHUD::GetMarketOpen()
+{
+	return bMarketOpen;
 }
 
 void APlayerHUD::DrawHUD()
 {
 	Super::DrawHUD();
-
-	//if (HUDWidget) {
-	//	if (player) {
-	//		HUDWidget->SP = player->GetShield();
-	//		HUDWidget->HP = player->GetHealth();
-	//		UE_LOG(LogTemp, Warning, TEXT("Updating Info"));
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("player failed"));
-
-	//	}
-	//}
-	//else
-	//{
-	//	UE_LOG(LogTemp, Warning, TEXT("HUD Widget failed - DRAWHUD"));
-
-	//}
 }

@@ -67,6 +67,11 @@ UProjectileMovementComponent* AProjectile::GetProjectileMovement()
 	return ProjectileMovementComponent;
 }
 
+void AProjectile::SetFiringPlayer(AFPSCharacter* FP)
+{
+	FiringPlayer = FP;
+}
+
 // Called when the game starts or when spawned
 void AProjectile::BeginPlay()
 {
@@ -76,6 +81,7 @@ void AProjectile::BeginPlay()
 	GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &AProjectile::OnDestroyTimerExpired, DestroyDelay, false);
 
 	CollisionComponent->IgnoreActorWhenMoving(this, true);
+	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
 	if(GetInstigator())
 	{
 		GetInstigator()->MoveIgnoreActorAdd(GetInstigator());
@@ -110,14 +116,16 @@ void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* 
 	// Check if the actor that was hit is a player
 	AFPSCharacter* player = Cast<AFPSCharacter>(GetOwner());
 	APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
-
 	if (player && PlayerInfoState)
 	{
-
 		AWeapon* Weapon = player->GetCurrentWeapon();
 		if (Weapon) {
 			if (OtherActor) {
 				AFPSCharacter* EnemyPlayer = Cast<AFPSCharacter>(OtherActor);
+				if(player == EnemyPlayer)
+				{
+					return;
+				}
 				if (EnemyPlayer) {
 					APlayerInfoState* EnemyPlayerState = Cast<APlayerInfoState>(EnemyPlayer->GetPlayerState());
 					if (EnemyPlayerState && EnemyPlayerState->TeamId != PlayerInfoState->TeamId)
@@ -141,6 +149,14 @@ void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* 
 
 
 	Destroy();
+}
+
+void AProjectile::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	CollisionComponent->IgnoreActorWhenMoving(this, true);
+	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
+
 }
 
 void AProjectile::Destroyed()

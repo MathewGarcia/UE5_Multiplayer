@@ -57,8 +57,11 @@ public:
 
 	void Fire(FTransform SocketTransform);
 
+	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Shield")
 	float MaxShield;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+	float MaxHP;
 	//Player Info
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	float GetHealth();
@@ -80,8 +83,6 @@ public:
 		void MulticastOnWeaponEquipped(AWeapon* WeaponToEquip);
 
 
-	//possibly save for later?
-	void SetClientSideWeapon(AWeapon* Weapon);
 
 	AWeapon* GetCurrentWeapon();
 
@@ -263,10 +264,28 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSpawnWeapon(TSubclassOf<AWeapon>WeaponClass);
 
+
+	FTimerHandle DestructionTimer;
+	float TimeBeforeDestroy = 2.f;
+
+	void SetDeathEXP(int32 NewDeathEXP);
+
+	void SetDeathGold(int32 NewDeathGold);
+
+	int32 GetDeathEXP();
+
+	int32 GetDeathGold();
+
+
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
 
+	UPROPERTY(Replicated,EditAnywhere, Category = "PlayerInfo")
+		int32 DeathEXP;
+
+	UPROPERTY(Replicated, EditAnywhere, Category = "PlayerInfo")
+		int32 DeathGold;
 
 	float MinimumSlideSpeed = 1500.0f;
 
@@ -284,6 +303,8 @@ private:
 
 
 	bool bCanOpenMarket;
+
+	
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -353,11 +374,10 @@ protected:
 	AProjectile* Projectile;
 
 	FTransform GetFiringPosition();
+	void DestroyCharacter();
 	void KilledBy(AController* EventInstigator);
 
 	void Interact();
-
-	void EndInteract();
 
 	UFUNCTION(Server, Reliable)
 		void HandleInteract();
@@ -375,7 +395,7 @@ protected:
 		bool bSprint;
 
 	UFUNCTION()
-		void OnRep_Sprint();
+		void OnRep_Sprint() const;
 
 	void ApplyRecoil();
 
@@ -391,6 +411,9 @@ protected:
 
 	bool bIsFiring;
 
+	virtual void DetachFromControllerPendingDestroy() override;
+
+	virtual void PossessedBy(AController* NewController) override;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -403,6 +426,13 @@ public:
 	//Player Info
 	void SetHealth(float hp);
 	void SetShield(float shield);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetHealth(float val);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerSetShield(float val);
+
 	UFUNCTION()
 		void OnRep_Health();
 	UFUNCTION()

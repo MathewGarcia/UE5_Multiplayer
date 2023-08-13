@@ -4,6 +4,7 @@
 #include "Bomb.h"
 #include "FPSCharacter.h"
 #include "FPSPlayerController.h"
+#include "PlayerHUD.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
@@ -115,14 +116,14 @@ void ABomb::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 		if (player)
 		{
 			SetOwner(player);
-			AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-			if (PC)
-			{
+		
 				FString Key = player->GetKey("IA_Interact");
 				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Defuse"), FText::FromString(Key));
 
-				PC->UpdateText(text);
-			}
+				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+				if (PlayerHUD) {
+					PlayerHUD->UpdateText(text);
+				}
 		}
 	}
 }
@@ -137,12 +138,10 @@ void ABomb::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherAc
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 		if (player)
 		{
-				AFPSPlayerController* PC = Cast<AFPSPlayerController>(player->GetController());
-				if (PC)
-				{
-
-					PC->UpdateText(FText::FromString(TEXT("")));
-				}
+			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+			if (PlayerHUD) {
+				PlayerHUD->UpdateText(FText::FromString(""));
+			}
 		}
 	}
 }
