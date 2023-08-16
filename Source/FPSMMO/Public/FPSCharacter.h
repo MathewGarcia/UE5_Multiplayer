@@ -235,6 +235,8 @@ public:
 	void OpenTaccom(const FInputActionValue& InputActionValue);
 
 	//planting
+	bool bIsMovementIgnored = false;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerSetBombInteraction(EBombInteractionType InteractionType);
 
@@ -420,6 +422,8 @@ public:
 	void ServerTick(float DeltaTime);
 
 	void StartADS(const FInputActionValue& InputActionValue);
+	void ManageScoreboard(const FInputActionValue& InputActionValue);
+	bool bScoreboardOpen;
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

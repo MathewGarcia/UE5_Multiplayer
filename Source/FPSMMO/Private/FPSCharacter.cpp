@@ -24,12 +24,10 @@
 #include "DrawDebugHelpers.h"
 #include "FPSGameState.h"
 #include "InputMappingContext.h"
-#include "pHUD.h"
 #include "FPSMMO/FPSMMOGameModeBase.h"
 
-//TODO: SPAWNING WEAPON IN THE PLAYER AND THE GAME MODE SEEMS REDUNDANT.
 //TODO:SOMETIMES PLAYER STARTS HITCHING IN CERTAIN AREAS WHEN SPAWNED IN
-
+//TODO: SOMETIMES SERVER PLAYER DOES NOT HAVE A WEAPON ON SPAWN??
 // Sets default values
 AFPSCharacter::AFPSCharacter()
 {
@@ -732,8 +730,10 @@ bool AFPSCharacter::ServerBombInteraction_Validate()
 
 void AFPSCharacter::StopPlanting()
 {
-	ServerSetBombInteraction(EBombInteractionType::None);
+	UE_LOG(LogTemp, Warning, TEXT("Calling stop planting"));
 	GetController()->SetIgnoreMoveInput(false);
+	bIsMovementIgnored = false;
+	ServerSetBombInteraction(EBombInteractionType::None);
 }
 
 void AFPSCharacter::SetDeathEXP(int32 NewDeathEXP)
@@ -790,10 +790,13 @@ void AFPSCharacter::ServerSetBombInteraction_Implementation(EBombInteractionType
 		{
 			// Interaction was stopped before the timer ran out. Clear the timer.
 			GetWorld()->GetTimerManager().ClearTimer(BombInteractionTimerHandle);
+			GetController()->SetIgnoreMoveInput(false);
+
 		}
 			// Started interacting. Set the timer.
 		else if (InteractionType == EBombInteractionType::Planting) {
 				GetWorld()->GetTimerManager().SetTimer(BombInteractionTimerHandle, this, &AFPSCharacter::ServerBombInteraction, BombInteractionTime, false);
+
 		}
 		else if(InteractionType == EBombInteractionType::Defusing)
 			{
@@ -875,20 +878,6 @@ void AFPSCharacter::SetHealth(float hp)
 		{
 			if (CurrentWeapon->GetPickedUp()) {
 				MulticastDropWeapon(CurrentWeapon);
-			}
-			APlayerInfoState* PS = Cast<APlayerInfoState>(GetPlayerState());
-			
-			if(PS)
-			{
-				PS->UpdateDeath();
-			}
-			if(LastDamagingPlayer)
-			{
-				APlayerInfoState* EnemyPS = Cast<APlayerInfoState>(LastDamagingPlayer->GetPlayerState<APlayerInfoState>());
-				if(EnemyPS)
-				{
-					EnemyPS->UpdateKills();
-				}
 			}
 
 		}
@@ -1091,6 +1080,21 @@ void AFPSCharacter::KilledBy(AController* EventInstigator)
 		}
 	}
 
+	APlayerInfoState* PS = Cast<APlayerInfoState>(GetPlayerState());
+
+	if (PS)
+	{
+		PS->UpdateDeath();
+	}
+	if (LastDamagingPlayer)
+	{
+		APlayerInfoState* EnemyPS = Cast<APlayerInfoState>(LastDamagingPlayer->GetPlayerState<APlayerInfoState>());
+		if (EnemyPS)
+		{
+			EnemyPS->UpdateKills();
+		}
+	}
+
 	UCharacterMovementComponent* MovementComponent = Cast<UCharacterMovementComponent>(GetMovementComponent());
 	if (MovementComponent)
 	{
@@ -1133,7 +1137,7 @@ void AFPSCharacter::Interact()
 						PHUD->HideMarket();
 					}
 				}
-			}
+			}	
 		}
 	}
 
@@ -1141,6 +1145,7 @@ void AFPSCharacter::Interact()
 		{
 			UnCrouch();
 			StopPlanting();
+			return;
 		}
 
 		if (BombInteractionType != EBombInteractionType::None)
@@ -1158,10 +1163,25 @@ void AFPSCharacter::Interact()
 	if (GS) {
 		if (FPSPC) {
 			if (CanPlant && BombInteractionType == EBombInteractionType::None && !WeaponCollided && !GS->bIsBombPlanted) {
+				if (!bIsMovementIgnored) {
+					UE_LOG(LogTemp, Warning, TEXT("Calling Set Ignore Move Input(planting)"));
+					GetController()->SetIgnoreMoveInput(true);
+					bIsMovementIgnored = true;
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Set Ignore Move Input is already true"));
 
-				StartCrouch();
-				ServerSetBombInteraction(EBombInteractionType::Planting);
-				GetController()->SetIgnoreMoveInput(true);
+				}
+				for(ABombSite*BombSite : GS->BombSites)
+				{
+					if(BombSite && BombSite->IsOverlappingActor(this) && BombSite->GetTeam() != Cast<APlayerInfoState>(GetPlayerState())->TeamId)
+					{
+						StartCrouch();
+						ServerSetBombInteraction(EBombInteractionType::Planting);
+						return;
+					}
+				}
 
 			}
 			// Otherwise, if we are planting, then stop planting and uncrouch.
@@ -1171,8 +1191,11 @@ void AFPSCharacter::Interact()
 			}
 			else if (GS->bIsBombPlanted && BombInteractionType == EBombInteractionType::None)
 			{
-				GetController()->SetIgnoreMoveInput(true);
-
+				if (!bIsMovementIgnored) {
+					UE_LOG(LogTemp, Warning, TEXT("Calling Set Ignore Move Input(defuse)"));
+					GetController()->SetIgnoreMoveInput(true);
+					bIsMovementIgnored = true;
+				}
 				for(ABombSite* BombSite : GS->BombSites)
 				{
 					if( BombSite->GetPlantedBomb()  && BombSite->GetPlantedBomb()->IsOverlappingActor(this))
@@ -1248,6 +1271,7 @@ void AFPSCharacter::PossessedBy(AController* NewController)
 	UE_LOG(LogTemp, Warning, TEXT("Possessed by: %s"), *NewController->GetName());
 	UE_LOG(LogTemp, Warning, TEXT("IsLocallyControlled: %s"), IsLocallyControlled() ? TEXT("true") : TEXT("false"));
 }
+
 
 // Called every frame
 void AFPSCharacter::Tick(float DeltaTime)
@@ -1333,6 +1357,18 @@ void AFPSCharacter::StartADS(const FInputActionValue& InputActionValue)
 	
 }
 
+void AFPSCharacter::ManageScoreboard(const FInputActionValue& InputActionValue)
+{
+	if (GetPlayerHUD())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Calling ManageScoreboard"));
+
+		bScoreboardOpen = InputActionValue.Get<bool>();
+
+		bScoreboardOpen ? GetPlayerHUD()->ShowScoreboard() : GetPlayerHUD()->HideScoreboard();
+	}
+}
+
 // Called to bind functionality to input
 void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -1363,6 +1399,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputADS, ETriggerEvent::Triggered, this, &AFPSCharacter::StartADS);
 	PEI->BindAction(InputActions->InputReload, ETriggerEvent::Triggered, this, &AFPSCharacter::StartReload);
 	PEI->BindAction(InputActions->InputTaccom, ETriggerEvent::Triggered, this, &AFPSCharacter::OpenTaccom);
+	PEI->BindAction(InputActions->InputScoreboard, ETriggerEvent::Triggered, this, &AFPSCharacter::ManageScoreboard);
 
 
 

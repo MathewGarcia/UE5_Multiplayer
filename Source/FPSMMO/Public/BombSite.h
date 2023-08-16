@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "BombSite.generated.h"
 
+enum class ETeam : uint8;
 class ABomb;
 class UBoxComponent;
 UCLASS()
@@ -33,9 +34,15 @@ public:
 
 	ABomb* GetPlantedBomb();
 
+	void SetTeam(ETeam NewTeam);
+
+	ETeam GetTeam();
 private:
 	UPROPERTY(Replicated)
 		ABomb* PlantedBomb;
+
+	UPROPERTY(Replicated, EditAnywhere, Category= "Bomb Team")
+		ETeam Team;
 
 protected:
 	// Called when the game starts or when spawned

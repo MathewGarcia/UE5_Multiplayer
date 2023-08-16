@@ -120,9 +120,11 @@ void ABomb::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 				FString Key = player->GetKey("IA_Interact");
 				FText text = FText::Format(LOCTEXT("IA_Interact", "Press {0} to Defuse"), FText::FromString(Key));
 
-				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
-				if (PlayerHUD) {
-					PlayerHUD->UpdateText(text);
+				if (player->IsLocallyControlled()) {
+					APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+					if (PlayerHUD) {
+						PlayerHUD->UpdateText(text);
+					}
 				}
 		}
 	}
@@ -136,8 +138,9 @@ void ABomb::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherAc
 	if (OtherActor)
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-		if (player)
+		if (player && player->IsLocallyControlled())
 		{
+
 			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
 			if (PlayerHUD) {
 				PlayerHUD->UpdateText(FText::FromString(""));

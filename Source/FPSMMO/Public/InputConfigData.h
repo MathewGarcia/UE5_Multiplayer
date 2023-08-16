@@ -49,5 +49,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputTaccom;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputScoreboard;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputMenu;
 };

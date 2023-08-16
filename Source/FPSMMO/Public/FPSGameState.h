@@ -6,6 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "FPSGameState.generated.h"
 
+class APlayerInfoState;
 class AFPSMMOGameModeBase;
 struct FDeadPlayerInfo;
 class AFPSCharacter;
@@ -14,6 +15,8 @@ class ABomb;
 /**
  * 
  */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayersChanged);
+
 UCLASS()
 class FPSMMO_API AFPSGameState : public AGameStateBase
 {
@@ -42,15 +45,32 @@ public:
 		UPROPERTY(Replicated)
 			TArray<ABombSite*>BombSites;
 
+	//bounty setting
 		void SetBounty(AFPSCharacter*BountyPlayer);
+
+		UFUNCTION(NetMulticast, Reliable)
+			void MulticastSetBounty(AFPSCharacter* BountyPlayer);
 
 		void SetGameTime(float GameTime);
 
-		UPROPERTY(Replicated)
+	UPROPERTY(Replicated)
 			float GameTimeInSeconds;
 
 		UPROPERTY(Replicated)
 		TArray<FDeadPlayerInfo>DeadPlayers;
+
+		UPROPERTY(BlueprintAssignable, Category = "Events")
+			FOnPlayersChanged OnPlayersChanged;
+
+		// Call this method whenever the player array changes
+		void PlayersChanged() const;
+
+
+		UPROPERTY(ReplicatedUsing = "OnRep_UpdatePlayerArray")
+			TArray<APlayerInfoState*>PlayerStates;
+
+		UFUNCTION()
+			void OnRep_UpdatePlayerArray();
 
 private:
 	UPROPERTY(Replicated)

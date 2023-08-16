@@ -91,9 +91,22 @@ void AFPSMMOGameModeBase::PostLogin(APlayerController* NewPlayer)
         FPSPlayerState->TeamId = AssignTeam();
     }
 
-
     Super::PostLogin(NewPlayer);
 
+    if (HasAuthority() && GS)
+    {
+        if (APlayerInfoState* PIS = Cast<APlayerInfoState>(NewPlayer->PlayerState))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("PIS Value: %s"), *PIS->GetName());
+            GS->PlayerStates.Add(PIS);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GAMESTATE FAILED IN ONPOSTLOGIN"));
+    }
+
+    
 }
 
 float AFPSMMOGameModeBase::GetRespawnTime()
@@ -107,11 +120,10 @@ void AFPSMMOGameModeBase::SetRespawnTime()
     if(World)
     {
     
-            AFPSGameState* FPSGameState = Cast<AFPSGameState>(World->GetGameState());
-            if (FPSGameState)
+            if (GS)
             {
                 float CurrentTime = World->GetTimeSeconds();
-                FPSGameState->SetGameTime(CurrentTime);
+                GS->SetGameTime(CurrentTime);
             }
         
         float TotalTimeInSeconds = World->GetTimeSeconds();
@@ -146,8 +158,8 @@ void AFPSMMOGameModeBase::InitGameState()
     {
         GS->bIsBombPlanted = false;
     }
-
 }
+
 
 void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
 {
@@ -184,6 +196,15 @@ void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
 	Super::RestartPlayer(NewPlayer);
 
 
+}
+
+bool AFPSMMOGameModeBase::AllPlayersConnected()
+{
+	if(GS)
+    {
+        return GS->PlayerArray.Num() == 2;
+    }
+    return false;
 }
 
 void AFPSMMOGameModeBase::Tick(float DeltaSeconds)

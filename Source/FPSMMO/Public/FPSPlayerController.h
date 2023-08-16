@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "FPSPlayerController.generated.h"
 
+class APlayerHUD;
 class UMarketDataAsset;
 class UMarketWidget;
 class APlayerInfoState;
@@ -30,12 +31,20 @@ public:
 		UFUNCTION(Client, Reliable)
 			void ClientUpdateRespawnTime(float RespawnTimeLeft);
 
+		UFUNCTION(Client, Reliable)
+			void ClientUpdateBountyUI(const FText& NewText);
+
+		UFUNCTION(Client, Reliable)
+			void ClientUpdateScoreboard();
+
+		void OnHUDReady(APlayerHUD* playerHUD);
+
 protected:
 
 	virtual void BeginPlay() override;
 
-
 private:
+	UPROPERTY()
 	APlayerInfoState* PIS;
 
 

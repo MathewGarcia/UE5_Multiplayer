@@ -50,6 +50,16 @@ ABomb* ABombSite::GetPlantedBomb()
 	return PlantedBomb;
 }
 
+void ABombSite::SetTeam(ETeam NewTeam)
+{
+	Team = NewTeam;
+}
+
+ETeam ABombSite::GetTeam()
+{
+	return Team;
+}
+
 // Called when the game starts or when spawned
 void ABombSite::BeginPlay()
 {
@@ -69,7 +79,7 @@ void ABombSite::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* O
 	if(OtherActor)
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-		if(player)
+		if(player && player->IsLocallyControlled())
 		{
 			player->SetCanPlant(true);
 				FString Key = player->GetKey("IA_Interact");
@@ -88,10 +98,11 @@ void ABombSite::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* O
 void ABombSite::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	int32 OtherBodyIndex)
 {
+	//TODO:CHECK IF NOT ON THE SAME TEAM
 	if (OtherActor)
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-		if (player)
+		if (player && player->IsLocallyControlled())
 		{
 			player->SetCanPlant(false);
 			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
@@ -119,4 +130,5 @@ void ABombSite::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 	// Replace this with the actual name of your replicated property.
 	DOREPLIFETIME(ABombSite, bBoxComponentEnabled);
 	DOREPLIFETIME(ABombSite, PlantedBomb);
+	DOREPLIFETIME(ABombSite, Team);
 }

@@ -7,6 +7,8 @@
 #include "GameFramework/HUD.h"
 #include "PlayerHUD.generated.h"
 
+class APlayerInfoState;
+class UScoreboardWidget;
 class AFPSPlayerController;
 class UTaccomWidget;
 class UMarketWidget;
@@ -33,6 +35,9 @@ public:
 		UPROPERTY(EditDefaultsOnly, Category = "Market Widget")
 			TSoftClassPtr<UMarketWidget> pMarketWidgetClass;
 
+		UPROPERTY(EditDefaultsOnly, Category = "Scoreboard")
+			TSoftClassPtr<UScoreboardWidget> pScoreboardWidgetClass;
+
 
 		UpHUD* HUDWidget;
 
@@ -41,6 +46,9 @@ public:
 		UMarketWidget* MarketWidget;
 
 		UpHUD* UHUDWidget;
+
+		UScoreboardWidget* ScoreboardWidget;
+
 
 		void UpdateMarket(UMarketDataAsset* CurrentMarket);
 
@@ -58,6 +66,15 @@ public:
 
 	void UpdateGameTimeText(FText NewText);
 	void UpdateRespawnTime(float RespawnTimeLeft);
+
+	void ShowScoreboard();
+
+	void HideScoreboard();
+
+	void UpdateScoreboard(APlayerInfoState*PlayerInfo);
+
+	UFUNCTION()
+	void RefreshScoreboard();
 
 private:
 	AFPSPlayerController* FPSPC = nullptr;

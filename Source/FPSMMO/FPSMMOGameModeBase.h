@@ -7,6 +7,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "FPSMMOGameModeBase.generated.h"
 
+class AFPSPlayerController;
 class AFPSGameState;
 struct FDeadPlayerInfo;
 class AFPSCharacter;
@@ -66,6 +67,12 @@ public:
 
 		virtual void RestartPlayer(AController* NewPlayer) override;
 
+		bool AllPlayersConnected();
+
+		TArray<AFPSPlayerController*> PlayerControllers;
+
+
+		void UpdatePlayerArray();
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Respawning")
@@ -74,6 +81,7 @@ private:
 	FTimerHandle RespawnTimer;
 
 	AFPSGameState* GS;
+
 protected:
 		virtual void InitGameState() override;
 

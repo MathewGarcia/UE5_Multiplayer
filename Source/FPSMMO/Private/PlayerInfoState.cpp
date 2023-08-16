@@ -4,6 +4,7 @@
 #include "PlayerInfoState.h"
 #include "FPSCharacter.h"
 #include "FPSGameState.h"
+#include "PlayerHUD.h"
 #include "Net/UnrealNetwork.h"
 
 
@@ -198,8 +199,10 @@ void APlayerInfoState::SetPlayer(AFPSCharacter* Player)
 
 void APlayerInfoState::UpdateKills()
 {
-	Kills++;
-	ConsecutiveKills++;
+	if (HasAuthority()) {
+		Kills++;
+		ConsecutiveKills++;
+	}
 	UE_LOG(LogTemp, Warning, TEXT("Updated Kills %d"),Kills);
 
 	//if the kills incremented 3 times and the player has not died yet, we want to set off the bounty.
@@ -207,7 +210,9 @@ void APlayerInfoState::UpdateKills()
 	{
 		if(GS && player)
 		{
-			GS->SetBounty(player);
+			if (HasAuthority()) {
+				GS->SetBounty(player);
+			}
 		}
 	}
 }
@@ -216,4 +221,38 @@ void APlayerInfoState::UpdateDeath()
 {
 	Deaths++;
 	ConsecutiveKills = 0;
+}
+
+int32 APlayerInfoState::GetKills()
+{
+	return Kills;
+}
+
+int32 APlayerInfoState::GetDeaths()
+{
+	return Deaths;
+}
+
+void APlayerInfoState::OnRep_UpdateKills()
+{
+	if(player)
+	{
+		if (APlayerHUD* PlayerHUD = player->GetPlayerHUD())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("OnRep_UpdateKills"));
+			PlayerHUD->UpdateScoreboard(this);
+		}
+	}
+}
+
+void APlayerInfoState::OnRep_UpdateDeaths()
+{
+	if (player)
+	{
+		if (APlayerHUD* PlayerHUD = player->GetPlayerHUD())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("OnRep_UpdateDeaths"));
+			PlayerHUD->UpdateScoreboard(this);
+		}
+	}
 }

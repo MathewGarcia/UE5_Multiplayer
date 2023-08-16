@@ -68,9 +68,11 @@ void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* Oth
 	
 			FString Key = player->GetKey("IA_Interact");
 			FText text = FText::Format(LOCTEXT("WeaponPickUpPrompt", "Press {0} to pick up {1}"), FText::FromString(Key), FText::FromString(WeaponName));
-			APlayerHUD* PlayerHUD = player->GetPlayerHUD();
-			if (PlayerHUD) {
-				PlayerHUD->UpdateText(text);
+			if (player->IsLocallyControlled()) {
+				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+				if (PlayerHUD) {
+					PlayerHUD->UpdateText(text);
+				}
 			}
 		player->bInCollision = true;
 		player->WeaponCollided = this;
@@ -86,10 +88,12 @@ void AWeapon::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 	{
 		
 			FText text = FText::FromString(TEXT(""));
-						APlayerHUD* PlayerHUD = player->GetPlayerHUD();
+			if (player->IsLocallyControlled()) {
+				APlayerHUD* PlayerHUD = player->GetPlayerHUD();
 				if (PlayerHUD) {
 					PlayerHUD->UpdateText(text);
 				}
+			}
 		player->WeaponCollided = nullptr;
 		player->bInCollision = false;
 	}

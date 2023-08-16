@@ -3,9 +3,12 @@
 
 #include "PlayerHUD.h"
 #include "FPSCharacter.h"
+#include "FPSGameState.h"
 #include "FPSPlayerController.h"
 #include "MarketWidget.h"
 #include "pHUD.h"
+#include "PlayerScoreData.h"
+#include "ScoreboardWidget.h"
 #include "TaccomWidget.h"
 #include "GameFramework/PlayerController.h"
 #include "Blueprint/UserWidget.h"
@@ -38,7 +41,6 @@ void APlayerHUD::OpenTaccom(bool bIsOpened)
 	}
 
 }
-//TODO: HIDE AFTER A FEW SECONDS TIMER.
 
 void APlayerHUD::UpdateGameInfoText(FText NewText)
 {
@@ -64,9 +66,60 @@ void APlayerHUD::UpdateRespawnTime(float RespawnTimeLeft)
 	}
 }
 
+void APlayerHUD::ShowScoreboard()
+{
+	if(ScoreboardWidget && HUDWidget)
+	{
+		if(player)
+		{
+			player->bScoreboardOpen = true;
+		}
+		ScoreboardWidget->SetVisibility(ESlateVisibility::Visible);
+		HUDWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void APlayerHUD::HideScoreboard()
+{
+	if(ScoreboardWidget && HUDWidget)
+	{
+		if (player)
+		{
+			player->bScoreboardOpen = false;
+		}
+		ScoreboardWidget->SetVisibility(ESlateVisibility::Hidden);
+		HUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+void APlayerHUD::UpdateScoreboard(APlayerInfoState* PlayerInfo)
+{
+	if(ScoreboardWidget && PlayerInfo)
+	{
+
+		ScoreboardWidget->UpdateScoreboardPlayer(PlayerInfo);
+	}
+}
+
+void APlayerHUD::RefreshScoreboard()
+{
+	if(ScoreboardWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RefreshScoreboard called! Refreshing..."));
+
+		ScoreboardWidget->SetupWidget();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Scoreboard Wdiget failed!"));
+
+	}
+}
+
 void APlayerHUD::BeginPlay()
 {
 	Super::BeginPlay();
+	UE_LOG(LogTemp, Warning, TEXT("APlayerHUD Created Beginplay line 123"));
 
 	FPSPC = Cast<AFPSPlayerController>(GetOwningPlayerController());
 
@@ -89,6 +142,20 @@ void APlayerHUD::BeginPlay()
 	{
 		MarketWidget->AddToViewport();
 		MarketWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	ScoreboardWidget = CreateWidget<UScoreboardWidget>(GetWorld(), pScoreboardWidgetClass.LoadSynchronous());
+	if(ScoreboardWidget)
+	{
+		ScoreboardWidget->AddToViewport();
+		ScoreboardWidget->SetupWidget();
+		ScoreboardWidget->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+
+	if (FPSPC)
+	{
+		FPSPC->OnHUDReady(this);
 	}
 
 }

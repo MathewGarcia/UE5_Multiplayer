@@ -81,28 +81,69 @@ ABomb* AFPSGameState::GetBomb()
 	return Bomb;
 }
 
-//TODO: fix to show to all players.
 void AFPSGameState::SetBounty(AFPSCharacter* BountyPlayer)
 {
-	if(BountyPlayer)
+	if(HasAuthority() && BountyPlayer)
 	{
-		if(BountyPlayer->GetPlayerHUD())
-		{
-			APlayerInfoState* PS = Cast<APlayerInfoState>(BountyPlayer->GetPlayerState());
-			if (PS) {
-				FString Newtext = FString::Printf(TEXT("%s IS ON A RAMPAGE"), *PS->PlayerName.ToString());
-				BountyPlayer->GetPlayerHUD()->UpdateGameInfoText(FText::FromString(Newtext));
+				MulticastSetBounty(BountyPlayer);
 				BountyPlayer->SetDeathEXP(BountyPlayer->GetDeathEXP() * 2);
 				BountyPlayer->SetDeathGold(BountyPlayer->GetDeathGold() * 2);
+	}
+}
+
+void AFPSGameState::MulticastSetBounty_Implementation(AFPSCharacter* BountyPlayer)
+{
+	APlayerInfoState* PS = Cast<APlayerInfoState>(BountyPlayer->GetPlayerState());
+	if (PS) {
+		FString Newtext = FString::Printf(TEXT("%s IS ON A RAMPAGE"), *PS->PlayerName.ToString());
+
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			AFPSPlayerController* PC = Cast<AFPSPlayerController>(*It);
+			if (PC)
+			{
+				PC->ClientUpdateBountyUI(FText::FromString(Newtext));
 			}
+
 		}
 	}
-
 }
 
 void AFPSGameState::SetGameTime(float GameTime)
 {
 		GameTimeInSeconds = GameTime;
+}
+
+
+void AFPSGameState::PlayersChanged() const
+{
+		if (OnPlayersChanged.IsBound()) {
+			OnPlayersChanged.Broadcast();
+			UE_LOG(LogTemp, Warning, TEXT("PlayersChanged called! Broadcasting..."));
+
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("PlayersChanged is not bound..."));
+		}
+	
+}
+
+void AFPSGameState::OnRep_UpdatePlayerArray()
+{
+	UE_LOG(LogTemp, Warning, TEXT("OnRep_UpdatePlayerArray called"));
+
+
+	// Iterate over the PlayerArray and add to the set
+	for (APlayerState* PS : PlayerArray)
+	{
+		if (APlayerInfoState* PIS = Cast<APlayerInfoState>(PS)) {
+			PlayerStates.AddUnique(PIS);
+		}
+	}
+
+	// Notify that the player list has changed
+	PlayersChanged();
 }
 
 void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -114,6 +155,7 @@ void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSGameState, BombSites);
 	DOREPLIFETIME(AFPSGameState, GameTimeInSeconds);
 	DOREPLIFETIME(AFPSGameState, DeadPlayers);
+	DOREPLIFETIME(AFPSGameState, PlayerStates);
 }
 
 void AFPSGameState::BeginPlay()

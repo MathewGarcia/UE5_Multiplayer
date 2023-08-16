@@ -61,7 +61,7 @@ void AMarketActor::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 	if(OtherActor)
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-		if(player)
+		if(player && player->IsLocallyControlled())
 		{
 			player->SetCanOpenMarket(true);
 			
@@ -85,7 +85,7 @@ void AMarketActor::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 	{
 		AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 
-		if(player)
+		if(player && player->IsLocallyControlled())
 		{
 			player->SetCanOpenMarket(false);
 			APlayerHUD* PlayerHUD = player->GetPlayerHUD();

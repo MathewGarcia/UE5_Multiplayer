@@ -74,6 +74,15 @@ public:
 	void UpdateKills();
 	void UpdateDeath();
 
+	int32 GetKills();
+
+	int32 GetDeaths();
+
+	UFUNCTION()
+		void OnRep_UpdateKills();
+
+	UFUNCTION()
+		void OnRep_UpdateDeaths();
 private:
 	UPROPERTY(Replicated)
 		int Gold;
@@ -82,10 +91,10 @@ private:
 
 	AFPSCharacter* player;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing= "OnRep_UpdateKills")
 	int32 Kills = 0;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = "OnRep_UpdateDeaths")
 	int32 Deaths = 0;
 
 	UPROPERTY(Replicated)
