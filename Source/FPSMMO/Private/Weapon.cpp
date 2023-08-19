@@ -59,8 +59,13 @@ void AWeapon::SetPickUp(bool isPickedUp)
 	SetOwner(nullptr);
 }
 
+bool AWeapon::GetPickup()
+{
+	return bPickedUp;
+}
+
 void AWeapon::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
 	if(player)
@@ -161,6 +166,19 @@ bool AWeapon::ServerSetPickUp_Validate(bool bSetPickUp)
 	return true;
 }
 
+void AWeapon::SetSpawnPoint(AItemSpawnPoint* spawnPoint)
+{
+	SpawnPoint = spawnPoint;
+}
+
+AItemSpawnPoint* AWeapon::GetSpawnPoint()
+{
+	if (SpawnPoint) {
+		return SpawnPoint;
+	}
+	return nullptr;
+}
+
 void AWeapon::ServerStartReload_Implementation()
 {
 	UE_LOG(LogTemp, Warning, TEXT("ServerStartReload called"));
@@ -235,4 +253,5 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, bIsAttached);
 	DOREPLIFETIME(AWeapon, WeaponSpread);
 	DOREPLIFETIME(AWeapon, WeaponEXP);
+	DOREPLIFETIME(AWeapon, WeaponGold);
 }

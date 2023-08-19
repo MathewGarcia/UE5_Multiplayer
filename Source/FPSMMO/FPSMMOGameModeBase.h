@@ -7,6 +7,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "FPSMMOGameModeBase.generated.h"
 
+class ACaptureRing;
+class AWeapon;
 class AFPSPlayerController;
 class AFPSGameState;
 struct FDeadPlayerInfo;
@@ -71,8 +73,8 @@ public:
 
 		TArray<AFPSPlayerController*> PlayerControllers;
 
+		void SpawnRing();
 
-		void UpdatePlayerArray();
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Respawning")

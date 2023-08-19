@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Weapon.generated.h"
 
+class AItemSpawnPoint;
 class UBoxComponent;
 UCLASS()
 class FPSMMO_API AWeapon : public AActor
@@ -42,6 +43,8 @@ public:
 	bool GetPickedUp();
 
 	void SetPickUp(bool isPickedUp);
+
+	bool GetPickup();
 
 	UPROPERTY(Replicated)
 	bool bIsAttached = false;
@@ -95,7 +98,9 @@ public:
 		void ServerSetPickUp_Implementation(bool bSetPickUp);
 		bool ServerSetPickUp_Validate(bool bSetPickUp);
 
+		void SetSpawnPoint(AItemSpawnPoint* spawnPoint);
 
+		AItemSpawnPoint*GetSpawnPoint();
 
 	void StartReload();
 
@@ -158,5 +163,8 @@ private:
 
 	UPROPERTY(Replicated, EditAnywhere, Category = "Weapon")
 		int32 WeaponGold;
+
+	UPROPERTY()
+		AItemSpawnPoint* SpawnPoint;
 
 };

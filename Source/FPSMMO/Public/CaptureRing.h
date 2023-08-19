@@ -7,6 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "CaptureRing.generated.h"
 
+class AWeapon;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRingPointsUpdated);
 class UBoxComponent;
 enum class ETeam : uint8;
@@ -33,6 +34,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Timer")
 		float TimerRate;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Timer")
+		TSubclassOf<AWeapon>WeaponToDrop;
+
 	UFUNCTION()
 		void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION()
@@ -46,11 +50,17 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerIncrementPoints();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerDropWeapon();
+
+	void DropWeapon();
+
 	void IncrementRingPoints();
 
 	UFUNCTION(BlueprintCallable, Category = "Ring Info")
 	int GetMaxRingPoints();
 
+	void SetMaxRingPoints(int32 NewMaxRingPoints);
 
 	UFUNCTION()
 	void OnRep_RingPoints();
@@ -58,6 +68,8 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 		FOnRingPointsUpdated OnRingPointsUpdated;
 
+	UFUNCTION()
+	void OnRep_DropWeapon();
 
 private:
 
@@ -67,6 +79,8 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Ring Info")
 		int MaxRingPoints;
 
+	UPROPERTY(ReplicatedUsing = "OnRep_DropWeapon")
+		bool bIsWeaponDropped;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

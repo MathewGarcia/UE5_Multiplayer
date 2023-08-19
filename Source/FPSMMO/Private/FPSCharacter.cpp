@@ -24,6 +24,7 @@
 #include "DrawDebugHelpers.h"
 #include "FPSGameState.h"
 #include "InputMappingContext.h"
+#include "ItemSpawnPoint.h"
 #include "FPSMMO/FPSMMOGameModeBase.h"
 
 //TODO:SOMETIMES PLAYER STARTS HITCHING IN CERTAIN AREAS WHEN SPAWNED IN
@@ -1536,7 +1537,11 @@ void AFPSCharacter::UpdateShield(float SP)
 void AFPSCharacter::EquipWeaponOnServer(AWeapon* Weapon)
 {
 	if (Weapon != nullptr) {
-		//Weapon->SetOwner(this);
+
+		if (Weapon->GetSpawnPoint())
+		{
+			Weapon->GetSpawnPoint()->OnWeaponPickedUp();
+		}
 
 		// If we have less than 2 weapons, just add the new weapon to the array
 		if (EquippedWeapons.Num() < 2)
@@ -1548,7 +1553,9 @@ void AFPSCharacter::EquipWeaponOnServer(AWeapon* Weapon)
 			// We already have two weapons. Drop the current one and replace it with the new one.
 			int32 CurrentWeaponIndex = EquippedWeapons.IndexOfByKey(CurrentWeapon);
 
+
 			if (HasAuthority()) {
+				//TODO:Change equip and drop weapon to onRep_ (if player is out of range or dead etc, it wont update the state of the weapon)
 				MulticastDropWeapon(CurrentWeapon);
 			}
 			else {

@@ -6,6 +6,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "FPSGameState.generated.h"
 
+class AWeapon;
+class ACaptureRing;
 class APlayerInfoState;
 class AFPSMMOGameModeBase;
 struct FDeadPlayerInfo;
@@ -23,6 +25,7 @@ class FPSMMO_API AFPSGameState : public AGameStateBase
 	GENERATED_BODY()
 
 public:
+
 		UPROPERTY(Replicated)
 		bool bIsBombPlanted;
 
@@ -71,6 +74,30 @@ public:
 
 		UFUNCTION()
 			void OnRep_UpdatePlayerArray();
+
+
+		UPROPERTY(EditAnywhere, Category = "All Weapons")
+			TArray<TSubclassOf<AWeapon>> Weapons;
+
+		UPROPERTY(EditAnywhere, Category = "Ring To Spawn")
+			TSubclassOf<ACaptureRing> CaptureRingToSpawn;
+
+		UPROPERTY(Replicated)
+			ACaptureRing* SpawnedCaptureRing;
+
+		UFUNCTION(Server, Reliable, WithValidation)
+			void ServerDestroyRing();
+
+	void DestroyRing() const;
+
+		void SpawnCaptureRing();
+
+		FTimerHandle DestroyTimerHandle;
+
+		FTimerHandle SpawnRingTimerHandle;
+
+		UPROPERTY(EditAnywhere, Category = "Timer")
+			float SpawnRingTimer;
 
 private:
 	UPROPERTY(Replicated)

@@ -5,6 +5,7 @@
 
 #include "FPSCharacter.h"
 #include "TeamEnum.h"
+#include "Weapon.h"
 #include "Components/BoxComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -72,14 +73,37 @@ bool ACaptureRing::ServerIncrementPoints_Validate()
 	return true;
 }
 
+void ACaptureRing::ServerDropWeapon_Implementation()
+{
+	bIsWeaponDropped = true;
+	DropWeapon();
+}
+
+bool ACaptureRing::ServerDropWeapon_Validate()
+{
+	return WeaponToDrop != nullptr;
+}
+
+void ACaptureRing::DropWeapon()
+{
+	FVector SpawnLocation = GetActorLocation();
+	FRotator SpawnRotation = GetActorRotation();
+	GetWorld()->SpawnActor<AWeapon>(WeaponToDrop, SpawnLocation, SpawnRotation);
+}
+
 void ACaptureRing::IncrementRingPoints()
 {
 	if (RingPoints < MaxRingPoints && HasAuthority()) {
 		RingPoints++;
 		UE_LOG(LogTemp, Warning, TEXT("Incrementing points: %d "), RingPoints);
-		if(RingPoints == MaxRingPoints)
+		if(RingPoints >= MaxRingPoints)
 		{
-			//TODO:update the exp and gold.
+			//TODO:update the exp and gold to players in the ring and drop weapon if applicable
+			if(WeaponToDrop != nullptr)
+			{
+				ServerDropWeapon();
+				Destroy();
+			}
 		}
 	}
 }
@@ -89,10 +113,20 @@ int ACaptureRing::GetMaxRingPoints()
 	return MaxRingPoints;
 }
 
+void ACaptureRing::SetMaxRingPoints(int32 NewMaxRingPoints)
+{
+	MaxRingPoints = NewMaxRingPoints;
+}
+
 
 void ACaptureRing::OnRep_RingPoints()
 {
 	OnRingPointsUpdated.Broadcast();
+}
+
+void ACaptureRing::OnRep_DropWeapon()
+{
+	DropWeapon();
 }
 
 // Called when the game starts or when spawned
@@ -108,6 +142,7 @@ void ACaptureRing::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ACaptureRing, RingPoints);
+	DOREPLIFETIME(ACaptureRing, bIsWeaponDropped);
 }
 
 // Called every frame
