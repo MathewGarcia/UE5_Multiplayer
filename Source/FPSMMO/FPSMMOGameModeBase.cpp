@@ -14,6 +14,7 @@
 #include "PlayerHUD.h"
 #include "Weapon.h"
 #include "GameFramework/HUD.h"
+#include "Steamworks/Steamv153/sdk/public/steam/steam_api.h"
 
 AFPSMMOGameModeBase::AFPSMMOGameModeBase()
 {
@@ -84,13 +85,6 @@ APawn* AFPSMMOGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewP
 
 void AFPSMMOGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
-    APlayerInfoState* FPSPlayerState = Cast<APlayerInfoState>(NewPlayer->PlayerState);
-    if (FPSPlayerState)
-    {
-        FPSPlayerState->SetPlayerController(NewPlayer);
-        FPSPlayerState->TeamId = AssignTeam();
-    }
-
     Super::PostLogin(NewPlayer);
 
     if (HasAuthority() && GS)
@@ -101,12 +95,6 @@ void AFPSMMOGameModeBase::PostLogin(APlayerController* NewPlayer)
             GS->PlayerStates.Add(PIS);
         }
     }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("GAMESTATE FAILED IN ONPOSTLOGIN"));
-    }
-
-    
 }
 
 float AFPSMMOGameModeBase::GetRespawnTime()
@@ -166,7 +154,6 @@ void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
 
     if (NewPlayer && HasAuthority())
     {
-
         APlayerInfoState* PlayerInfoState = NewPlayer->GetPlayerState<APlayerInfoState>();
         if (PlayerInfoState) {
             FVector SpawnLocation = DetermineRespawnLocation(PlayerInfoState->TeamId);
@@ -178,14 +165,8 @@ void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
             if (NewCharacter)
             {
                 NewPlayer->Possess(NewCharacter);
-            	if (!NewCharacter->GetCurrentWeapon() && NewCharacter->SpawningWeapon) {
-                    AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(NewCharacter->SpawningWeapon);
-                   Weapon->SetActorLocation(NewCharacter->GetActorLocation());
-                    Weapon->SetOwner(NewCharacter);
-                    NewCharacter->EquipWeapon(Weapon);
-                    Weapon->SetPickUp(true);
-                }
-
+                NewCharacter->OnPlayerReady.AddDynamic(this, &AFPSMMOGameModeBase::OnPlayerReadyForInitialization);
+                NewCharacter->PrepareForInitialization();
             }
         }
 
@@ -207,6 +188,17 @@ bool AFPSMMOGameModeBase::AllPlayersConnected()
     return false;
 }
 
+void AFPSMMOGameModeBase::OnPlayerReadyForInitialization(AFPSCharacter* NewCharacter)
+{
+    if (NewCharacter && !NewCharacter->GetCurrentWeapon() && NewCharacter->SpawningWeapon) {
+        AWeapon* Weapon = GetWorld()->SpawnActor<AWeapon>(NewCharacter->SpawningWeapon);
+        Weapon->SetActorLocation(NewCharacter->GetActorLocation());
+        Weapon->SetOwner(NewCharacter);
+        NewCharacter->EquipWeapon(Weapon);
+        Weapon->SetPickUp(true);
+    }
+}
+
 void AFPSMMOGameModeBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -215,5 +207,11 @@ void AFPSMMOGameModeBase::Tick(float DeltaSeconds)
     if (GS) {
         GS->ServerUpdateDeadPlayers(DeltaSeconds);
     }
+
+}
+
+void AFPSMMOGameModeBase::BeginPlay()
+{
+	Super::BeginPlay();
 
 }

@@ -6,11 +6,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+#include "FPSGameInstance.h"
+#include "MainMenuGameStateBase.h"
+#include "MainMenuWidget.h"
 #include "PlayerHUD.h"
-#include "FPSCharacter.h"
-#include "MarketWidget.h"
-#include "pHUD.h"
-#include "TaccomWidget.h"
+#include "PlayerInfoState.h"
+#include "Blueprint/UserWidget.h"
 #include "GameFramework/PlayerController.h"
 
 AMainHUD::AMainHUD()
@@ -22,38 +23,21 @@ void AMainHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (pHUDClass)
+	MainMenuWidget = CreateWidget<UMainMenuWidget>(GetOwningPlayerController(), MainMenuWidgetClass.LoadSynchronous());
+
+	if(MainMenuWidget)
 	{
-		HUDWidget = CreateWidget<UpHUD>(GetWorld(), pHUDClass);
-		if (HUDWidget) {
-			HUDWidget->AddToViewport();
-			APlayerController* PC = GetWorld()->GetFirstPlayerController();
-			if (PC) {
-				player = Cast<AFPSCharacter>(PC->GetPawn());
-				if (player) {
-					HUDWidget->HP = player->GetHealth();
-					HUDWidget->SP = player->GetShield();
-				}
-
-			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("PC failed"));
-
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("HUD Widget failed - begin play"));
-
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("pHUDClass failed"));
-
+		MainMenuWidget->AddToViewport();
+		MainMenuWidget->SetupWidget();
 	}
 
+	UFPSGameInstance* GI = Cast<UFPSGameInstance>(GetGameInstance());
+
+	if(GI)
+	{
+		GI->OnPlayerJoin.AddDynamic(this, &AMainHUD::RefreshPlayerList);
+	}
+	GetOwningPlayerController()->SetInputMode(FInputModeGameAndUI());
 }
 
 void AMainHUD::DrawHUD()
@@ -61,4 +45,14 @@ void AMainHUD::DrawHUD()
 	Super::DrawHUD();
 
 
+}
+
+void AMainHUD::RefreshPlayerList()
+{
+	if(MainMenuWidget)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 200, FColor::Blue, FString::Printf(TEXT("Refresh player list called")));
+
+		MainMenuWidget->SetupWidget();
+	}
 }

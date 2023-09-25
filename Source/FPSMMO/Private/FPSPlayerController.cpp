@@ -4,6 +4,7 @@
 #include "FPSPlayerController.h"
 
 #include "FPSGameState.h"
+#include "MainHUD.h"
 #include "PlayerHUD.h"
 #include "PlayerInfoState.h"
 

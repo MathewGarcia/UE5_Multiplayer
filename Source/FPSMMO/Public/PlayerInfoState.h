@@ -83,6 +83,13 @@ public:
 
 	UFUNCTION()
 		void OnRep_UpdateDeaths();
+
+	int32 GetSlotLocation();
+
+	void SetSlotLocation(int32 NewSlotLocation);
+
+	UPROPERTY()
+	bool bIsInLobby;
 private:
 	UPROPERTY(Replicated)
 		int Gold;
@@ -101,6 +108,9 @@ private:
 	int32 ConsecutiveKills = 0;
 
 	AFPSGameState* GS;
+
+	UPROPERTY(Replicated)
+		int32 SlotLocation = 0;
 protected:
 
 	UPROPERTY(EditAnywhere,ReplicatedUsing = OnRep_Level, Category = "PlayerInfo")
@@ -126,6 +136,8 @@ protected:
 
 	virtual void Tick(float DeltaSeconds) override;
 
+	virtual void CopyProperties(APlayerState* PlayerState) override;
+
 
 public:
 	UFUNCTION()
@@ -133,4 +145,7 @@ public:
 
 	UFUNCTION()
 		void OnRep_InCombat();
+
+	UFUNCTION(Client, Reliable)
+		void ClientSetInputModeGameOnly();
 };

@@ -41,9 +41,10 @@ AWeapon::AWeapon()
 void AWeapon::OnRep_PickedUp()
 {
 	BoxCollision->SetGenerateOverlapEvents(!bPickedUp);
-	SetActorHiddenInGame(bPickedUp);
-	if(!bPickedUp)
+	if (!bPickedUp) {
 		SetOwner(nullptr);
+		SetActorHiddenInGame(false);
+	}
 }
 
 bool AWeapon::GetPickedUp()
@@ -55,8 +56,10 @@ void AWeapon::SetPickUp(bool isPickedUp)
 {
 	bPickedUp = isPickedUp;
 	BoxCollision->SetGenerateOverlapEvents(!bPickedUp);
-	if(!bPickedUp)
-	SetOwner(nullptr);
+	if (!bPickedUp) {
+		SetOwner(nullptr);
+		SetActorHiddenInGame(false);
+	}
 }
 
 bool AWeapon::GetPickup()

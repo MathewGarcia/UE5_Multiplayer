@@ -69,7 +69,7 @@ public:
 		void PlayersChanged() const;
 
 
-		UPROPERTY(ReplicatedUsing = "OnRep_UpdatePlayerArray")
+		UPROPERTY(BlueprintReadOnly, ReplicatedUsing = "OnRep_UpdatePlayerArray")
 			TArray<APlayerInfoState*>PlayerStates;
 
 		UFUNCTION()
@@ -98,11 +98,11 @@ public:
 
 		UPROPERTY(EditAnywhere, Category = "Timer")
 			float SpawnRingTimer;
-
 private:
 	UPROPERTY(Replicated)
 	ABomb* Bomb;
 
+	UPROPERTY()
 	AFPSMMOGameModeBase* GM;
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

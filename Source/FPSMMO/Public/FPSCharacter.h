@@ -18,6 +18,7 @@ class AWeapon;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerReadyDelegate,AFPSCharacter*,NewCharacter);
 
 UENUM(BlueprintType)
 enum class EBombInteractionType : uint8
@@ -26,6 +27,16 @@ enum class EBombInteractionType : uint8
 	Planting UMETA(DisplayName = "Planting"),
 	Defusing UMETA(DisplayName = "Defusing")
 };
+
+UENUM(BlueprintType)
+enum class ClimbingState : uint8
+{
+	NotClimbing UMETA(DisplayName = "NotClimbing"),
+	InitialClimb UMETA(DisplayName = "InitialClimb"),
+	FallingBack UMETA(DisplayName = "FallingBack"),
+	Climbing UMETA(DisplayName = "Climbing")
+};
+
 
 
 UCLASS()
@@ -72,15 +83,17 @@ public:
 	void UpdateHealth();
 	void UpdateShield(float SP);
 
-	void EquipWeaponOnServer(AWeapon* Weapon);
 	void EquipWeapon(AWeapon* WeaponToEquip);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+		void ServerUseWeapon(AWeapon*Weapon);
+
 	void UseWeapon(AWeapon* WeaponToUse);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerEquipWeapon(AWeapon* WeaponToEquip);
 
-	UFUNCTION(NetMulticast, Reliable)
-		void MulticastOnWeaponEquipped(AWeapon* WeaponToEquip);
+	void OnWeaponEquipped(AWeapon*WeaponToEquip);
 
 
 
@@ -205,9 +218,7 @@ public:
 		void ServerDropWeapon_Implementation(AWeapon* DroppedWeapon);
 		bool ServerDropWeapon_Validate(AWeapon* DroppedWeapon);
 
-		UFUNCTION(NetMulticast, Reliable)
-			void MulticastDropWeapon(AWeapon* DroppedWeapon);
-			void MulticastDropWeapon_Implementation(AWeapon* DroppedWeapon);
+			void DropWeapon(AWeapon*DroppedWeapon);
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
@@ -278,7 +289,11 @@ public:
 
 	int32 GetDeathGold();
 
+	void PrepareForInitialization();
 
+	FOnPlayerReadyDelegate OnPlayerReady;
+
+		bool IsLookingAtWall();
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -290,6 +305,12 @@ private:
 		int32 DeathGold;
 
 	float MinimumSlideSpeed = 1500.0f;
+
+
+	float TimeEnteredFallingBack;
+
+	UPROPERTY(Replicated)
+	ClimbingState CurrentClimbingState = ClimbingState::NotClimbing;
 
 
 	float DefaultFOV;
@@ -314,6 +335,9 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 		virtual float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+	virtual void Jump() override;
+
+	virtual void Landed(const FHitResult& Hit) override;
 
 	// First-person camera
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -365,6 +389,9 @@ protected:
 	UFUNCTION()
 		void OnRep_CurrentWeapon();
 
+	void SetFPSMesh();
+
+
 	UPROPERTY()
 		AFPSPlayerController* FPSPC;
 
@@ -384,7 +411,7 @@ protected:
 	UFUNCTION(Server, Reliable)
 		void HandleInteract();
 
-	bool IsButtonPressed();
+	bool IsButtonPressed(FString Button);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enhanced Input")
 			UInputMappingContext* InputMapping;
@@ -398,6 +425,28 @@ protected:
 
 	UFUNCTION()
 		void OnRep_Sprint() const;
+
+	UFUNCTION(Server,Reliable, WithValidation)
+		void ServerSetClimbing(ClimbingState ClimbingState);
+
+	UFUNCTION()
+		void SetClimbing(ClimbingState ClimbingState);
+
+	UFUNCTION()
+		void PerformClimb(float DeltaTime);
+
+	UFUNCTION(Server,Reliable, WithValidation)
+		void ServerPerformClimb(float DeltaTime);
+
+	int ClimbCounter = 0;
+
+	float FallBackTimer = 0.0f;
+
+	const float FallBackDuration = 0.5;
+
+	FTimerHandle ClimbTimerHandle;
+
+
 
 	void ApplyRecoil();
 

@@ -6,6 +6,7 @@
 #include "GameFramework/HUD.h"
 #include "MainHUD.generated.h"
 
+class UMainMenuWidget;
 class UpHUD;
 class AFPSCharacter;
 /**
@@ -18,18 +19,23 @@ class FPSMMO_API AMainHUD : public AHUD
 
 		AMainHUD();
 
-	UPROPERTY(EditDefaultsOnly, Category = "pHUDClass")
-		TSubclassOf<UpHUD> pHUDClass;
+	UPROPERTY(EditDefaultsOnly, Category = "MainMenuWidgetClass")
+		TSoftClassPtr<UMainMenuWidget> MainMenuWidgetClass;
+	UPROPERTY()
+	UMainMenuWidget* MainMenuWidget;
 
 	virtual void BeginPlay() override;
 
 	virtual void DrawHUD() override;
 
-	UpHUD* HUDWidget;
 
+public:
+	UFUNCTION()
+	void RefreshPlayerList();
+
+	void ResetUISettings();
 private:
 
-	UUserWidget* UHUDWidget;
 
 	AFPSCharacter* player;
 };

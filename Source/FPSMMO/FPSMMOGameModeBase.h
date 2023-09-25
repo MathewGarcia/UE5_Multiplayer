@@ -25,27 +25,6 @@ class FPSMMO_API AFPSMMOGameModeBase : public AGameModeBase
 
 public:
 	AFPSMMOGameModeBase();
-	int32 RedTeamPlayerCount = 0;
-	int32 BlueTeamPlayerCount = 0;
-
-	ETeam AssignTeam()
-	{
-		if(RedTeamPlayerCount < BlueTeamPlayerCount)
-		{
-			RedTeamPlayerCount++;
-			return ETeam::TEAM_RED;
-		}
-		else if (BlueTeamPlayerCount < RedTeamPlayerCount)
-		{
-			BlueTeamPlayerCount++;
-			return ETeam::TEAM_BLUE;
-		}
-		else
-		{
-			RedTeamPlayerCount++;
-			return ETeam::TEAM_RED;
-		}
-	}
 
 
 	UPROPERTY(EditAnywhere, Category = "Spawning")
@@ -71,9 +50,10 @@ public:
 
 		bool AllPlayersConnected();
 
-		TArray<AFPSPlayerController*> PlayerControllers;
+	UFUNCTION()
+	void OnPlayerReadyForInitialization(AFPSCharacter* NewCharacter);
 
-		void SpawnRing();
+	TArray<AFPSPlayerController*> PlayerControllers;
 
 private:
 
@@ -88,5 +68,7 @@ protected:
 		virtual void InitGameState() override;
 
 		virtual void Tick(float DeltaSeconds) override;
+
+	virtual void BeginPlay() override;
 
 };

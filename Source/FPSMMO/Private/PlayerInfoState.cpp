@@ -16,6 +16,7 @@ APlayerInfoState::APlayerInfoState()
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	CurrentLevel = 1;
+	bIsInLobby = false;
 }
 
 int APlayerInfoState::GetPlayerLevel()
@@ -137,6 +138,7 @@ void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(APlayerInfoState, Kills);
 	DOREPLIFETIME(APlayerInfoState, ConsecutiveKills);
 	DOREPLIFETIME(APlayerInfoState, Deaths);
+	DOREPLIFETIME(APlayerInfoState, SlotLocation);
 
 
 }
@@ -161,6 +163,23 @@ void APlayerInfoState::Tick(float DeltaSeconds)
 	
 }
 
+void APlayerInfoState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	if(IsValid(PlayerState))
+	{
+		APlayerInfoState* PIS = Cast<APlayerInfoState>(PlayerState);
+		if(PIS)
+		{
+				 PIS->TeamId = this->TeamId;
+				 PIS->SetSlotLocation(this->GetSlotLocation());
+			
+		}
+
+	}
+}
+
 void APlayerInfoState::OnRep_Level()
 {
 	LevelUp();
@@ -179,6 +198,15 @@ void APlayerInfoState::OnRep_InCombat()
 		SetInCombat(false);
 
 		
+	}
+}
+
+void APlayerInfoState::ClientSetInputModeGameOnly_Implementation()
+{
+	APlayerController* PlayerController = GetPlayerController();
+	if (PlayerController && PlayerController->IsLocalPlayerController())
+	{
+		PlayerController->SetInputMode(FInputModeGameOnly());
 	}
 }
 
@@ -255,4 +283,14 @@ void APlayerInfoState::OnRep_UpdateDeaths()
 			PlayerHUD->UpdateScoreboard(this);
 		}
 	}
+}
+
+int32 APlayerInfoState::GetSlotLocation()
+{
+	return SlotLocation;
+}
+
+void APlayerInfoState::SetSlotLocation(int32 NewSlotLocation)
+{
+	SlotLocation = NewSlotLocation;
 }

@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "FPSPlayerController.generated.h"
 
+class AMainHUD;
 class APlayerHUD;
 class UMarketDataAsset;
 class UMarketWidget;
@@ -39,6 +40,7 @@ public:
 
 		void OnHUDReady(APlayerHUD* playerHUD);
 
+		void OnMainMenuReady(AMainHUD* MainMenuHUD);
 protected:
 
 	virtual void BeginPlay() override;

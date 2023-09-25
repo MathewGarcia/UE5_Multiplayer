@@ -8,16 +8,16 @@ public class FPSMMO : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "UMG" , "OnlineSubsystem", "OnlineSubsystemUtils", "Networking","Sockets"});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" , "EnhancedInput"});
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" , "EnhancedInput", "OnlineSubsystem", "OnlineSubsystemNull","OnlineSubsystemSteam", "AdvancedSessions" });
 
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
 		// Uncomment if you are using online features
-		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+		PrivateDependencyModuleNames.Add("OnlineSubsystemSteam");
 
 		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
 	}

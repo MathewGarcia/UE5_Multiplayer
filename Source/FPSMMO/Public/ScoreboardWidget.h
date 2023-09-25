@@ -22,7 +22,6 @@ public:
 		void SetupWidget();
 
 		void UpdateScoreboardPlayer(APlayerInfoState* PlayerInfoState);
-	UPROPERTY()
-	TMap<APlayerInfoState* , UPlayerScoreData*> PlayerDataMap;
+	
 
 };
