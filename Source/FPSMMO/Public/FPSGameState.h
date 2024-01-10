@@ -14,6 +14,7 @@ struct FDeadPlayerInfo;
 class AFPSCharacter;
 class ABombSite;
 class ABomb;
+class ULane;
 /**
  * 
  */
@@ -98,6 +99,21 @@ public:
 
 		UPROPERTY(EditAnywhere, Category = "Timer")
 			float SpawnRingTimer;
+
+		UPROPERTY(Replicated,EditAnywhere, Category = "TopLane")
+			ULane* TopLane;
+
+		UPROPERTY(Replicated,EditAnywhere, Category = "MidLane")
+			ULane* MidLane;
+
+		UPROPERTY(Replicated,EditAnywhere, Category = "BotLane")
+			ULane*BotLane;
+
+		bool CanCapture(ACaptureRing*currentRing);
+
+		void InitLanes();
+
+		void RingUpdate(ACaptureRing*ring);
 private:
 	UPROPERTY(Replicated)
 	ABomb* Bomb;

@@ -54,4 +54,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputMenu;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputTactical;
 };

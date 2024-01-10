@@ -4,15 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "Weapon.h"
-#include "ClientWeapon.generated.h"
+#include "GrenadeWeapon.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class FPSMMO_API AClientWeapon : public AWeapon
+class FPSMMO_API AGrenadeWeapon : public AWeapon
 {
 	GENERATED_BODY()
 
-		AClientWeapon();
+
+
 };

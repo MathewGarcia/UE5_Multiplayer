@@ -10,8 +10,22 @@
 class AWeapon;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRingPointsUpdated);
 class UBoxComponent;
+class AFPSGameState;
+
 enum class ETeam : uint8;
 
+UENUM(BlueprintType)
+enum class EPos : uint8 {
+	EPos_Front UMETA(DisplayName = "Front"),
+	EPos_Back UMETA(DisplayName = "Back")
+};
+
+UENUM(BlueprintType)
+enum class ELane : uint8 {
+	ELane_Top UMETA(DisplayName = "Top"),
+	ELane_Mid UMETA(DisplayName = "Mid"),
+	ELane_Bot UMETA(DisplayName = "Bot")
+};
 UCLASS()
 class FPSMMO_API ACaptureRing : public AActor
 {
@@ -71,6 +85,17 @@ public:
 	UFUNCTION()
 	void OnRep_DropWeapon();
 
+	bool IsCaptured();
+
+	UFUNCTION()
+	void OnRep_Captured();
+
+	UPROPERTY(EditAnywhere, Category = "Position")
+	EPos pos;
+
+	UPROPERTY(EditAnywhere, Category = "Lane")
+	ELane lane;
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_RingPoints)
@@ -81,6 +106,12 @@ private:
 
 	UPROPERTY(ReplicatedUsing = "OnRep_DropWeapon")
 		bool bIsWeaponDropped;
+
+	UPROPERTY(ReplicatedUsing = "OnRep_Captured")
+		bool bIsCaptured;
+
+	AFPSGameState* GS;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

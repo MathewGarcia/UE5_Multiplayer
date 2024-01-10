@@ -195,6 +195,7 @@ void UFPSGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSucce
 
 void UFPSGameInstance::CheckAndLoad()
 {
+    //set each player back into game only mode.
     for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
     {
         APlayerController* PlayerController = Iterator->Get();

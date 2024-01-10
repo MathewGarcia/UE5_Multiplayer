@@ -12,6 +12,7 @@
 #include "FPSMMO/FPSMMOGameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Lane.h"
 
 
 void AFPSGameState::ServerUpdateDeadPlayers_Implementation(float DeltaSeconds)
@@ -191,7 +192,103 @@ void AFPSGameState::SpawnCaptureRing()
 				SpawnedCaptureRing->WeaponToDrop = Weapons[RandomWeapon];
 			}
 		}
+		//timer for how long the tower will stay alive for.
 		GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &AFPSGameState::ServerDestroyRing, 120.f);
+}
+
+
+
+bool AFPSGameState::CanCapture(ACaptureRing* currentRing)
+{
+	if (currentRing == SpawnedCaptureRing) return true;
+
+	bool result = false;
+	switch (currentRing->lane) {
+
+	case ELane::ELane_Top:
+		result = TopLane->CanCapture(currentRing);
+		break;
+
+	case ELane::ELane_Mid:
+		result = MidLane->CanCapture(currentRing);
+		break;
+	case ELane::ELane_Bot:
+		result = BotLane->CanCapture(currentRing);
+		break;
+
+	default:
+		//this will be for spawned in rings.
+		return true;
+		
+	}
+
+	return result;
+}
+
+
+void AFPSGameState::InitLanes()
+{
+	
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACaptureRing::StaticClass(), Actors);
+
+	//lambda function to sort the actors based off their position
+	Actors.Sort([](const AActor& A, const AActor& B) {
+		//pointer to ring references
+		const ACaptureRing* RingA = Cast<ACaptureRing>(&A);
+		const ACaptureRing* RingB = Cast<ACaptureRing>(&B);
+		//if ringA and ringB exist
+		if (RingA && RingB) {
+			//return the greater position
+			return RingA->pos > RingB->pos;
+		}
+		return false;
+		});
+
+	for (AActor* ringActor : Actors) {
+		ACaptureRing* ring = Cast<ACaptureRing>(ringActor);
+
+		switch (ring->lane) {
+
+		case ELane::ELane_Top:
+			TopLane->Insert(ring);
+			break;
+
+		case ELane::ELane_Mid:
+			MidLane->Insert(ring);
+			break;
+		case ELane::ELane_Bot:
+			BotLane->Insert(ring);
+			break;
+
+		default:
+			//this will be for spawned in rings.
+			break;
+		}
+	}
+
+
+}
+
+void AFPSGameState::RingUpdate(ACaptureRing* ring)
+{
+	switch (ring->lane) {
+
+	case ELane::ELane_Top:
+		TopLane->Delete(ring);
+		break;
+
+	case ELane::ELane_Mid:
+		MidLane->Delete(ring);
+		break;
+	case ELane::ELane_Bot:
+		BotLane->Delete(ring);
+		break;
+
+	default:
+		//this will be for spawned in rings.
+		break;
+	}
 }
 
 void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -205,6 +302,9 @@ void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSGameState, DeadPlayers);
 	DOREPLIFETIME(AFPSGameState, PlayerStates);
 	DOREPLIFETIME(AFPSGameState, SpawnedCaptureRing);
+	DOREPLIFETIME(AFPSGameState, TopLane);
+	DOREPLIFETIME(AFPSGameState, MidLane);
+	DOREPLIFETIME(AFPSGameState, BotLane);
 }
 
 void AFPSGameState::BeginPlay()
@@ -218,5 +318,9 @@ void AFPSGameState::BeginPlay()
 		GetWorld()->GetTimerManager().SetTimer(BeginPlayTimerHandle, this, &AFPSGameState::SpawnCaptureRing, 0.5f, false);
 		GetWorld()->GetTimerManager().SetTimer(SpawnRingTimerHandle, this, &AFPSGameState::SpawnCaptureRing, SpawnRingTimer, true);
 	}
+	TopLane = NewObject<ULane>(this);
+	MidLane = NewObject<ULane>(this);
+	BotLane = NewObject<ULane>(this);
+	InitLanes();
 
 }

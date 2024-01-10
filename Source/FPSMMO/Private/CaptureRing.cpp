@@ -8,6 +8,7 @@
 #include "Weapon.h"
 #include "Components/BoxComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "FPSGameState.h"
 
 // Sets default values
 ACaptureRing::ACaptureRing()
@@ -38,12 +39,18 @@ void ACaptureRing::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 	if(player)
 	{
 		APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
-		if(PlayerInfoState && PlayerInfoState->TeamId != this->TeamId)
+		if(PlayerInfoState && PlayerInfoState->TeamId != this->TeamId &&  GS->CanCapture(this))
 		{
 			if (HasAuthority()) {
 				GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
 			}
 			UE_LOG(LogTemp, Warning, TEXT("IN RING"));
+		}
+		else {
+			if (!GS->CanCapture(this)) {
+				UE_LOG(LogTemp, Warning, TEXT("OUT OF SEQUENCE"));
+
+			}
 		}
 	}
 }
@@ -103,6 +110,12 @@ void ACaptureRing::IncrementRingPoints()
 			{
 				ServerDropWeapon();
 				Destroy();
+				return;
+			}
+
+			if (GS) {
+				//update to delete the ring.
+				GS->RingUpdate(this);
 			}
 		}
 	}
@@ -129,13 +142,24 @@ void ACaptureRing::OnRep_DropWeapon()
 	DropWeapon();
 }
 
+bool ACaptureRing::IsCaptured()
+{
+	return bIsCaptured;
+}
+
+void ACaptureRing::OnRep_Captured()
+{
+	//update mesh to destroyed or something
+}
+
 // Called when the game starts or when spawned
 void ACaptureRing::BeginPlay()
 {
 	Super::BeginPlay();
 
 	RingPoints = 0;
-	
+
+	GS = GetWorld()->GetGameState<AFPSGameState>();
 }
 
 void ACaptureRing::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -143,6 +167,7 @@ void ACaptureRing::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ACaptureRing, RingPoints);
 	DOREPLIFETIME(ACaptureRing, bIsWeaponDropped);
+	DOREPLIFETIME(ACaptureRing, bIsCaptured);
 }
 
 // Called every frame

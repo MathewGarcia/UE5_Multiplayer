@@ -9,7 +9,8 @@
 class AFPSCharacter;
 class UpHUD;
 class UProjectileMovementComponent;
-
+class URadialForceComponent;
+class AStaticMeshActor;
 UCLASS()
 class FPSMMO_API AProjectile : public AActor
 {
@@ -36,6 +37,17 @@ public:
 
 	bool bIsShotgunPellet = false;
 
+	UPROPERTY(EditAnywhere, Category = "IsGrenade")
+	bool bIsGrenade = false;
+
+
+	
+	UPROPERTY(VisibleAnywhere, Category = "Explosion")
+		URadialForceComponent* ExplosionForce;
+
+
+	FVector CalcImpactPoint(AStaticMeshActor* StaticMeshActor);
+
 	void SetFiringPlayer(AFPSCharacter* FP);
 protected:
 	// Called when the game starts or when spawned
@@ -46,6 +58,9 @@ protected:
 	virtual void PostInitializeComponents() override;
 
 	virtual void Destroyed() override;
+
+	void Explode();
+
 
 public:	
 	// Called every frame
@@ -70,8 +85,9 @@ private:
 
 	AFPSCharacter* FiringPlayer;
 
+	FTimerHandle ExplosionTimerHandle;
 
-
+	float ExplosionTime = 3.0f;
 	// Function to destroy the projectile
 	void OnDestroyTimerExpired();
 };

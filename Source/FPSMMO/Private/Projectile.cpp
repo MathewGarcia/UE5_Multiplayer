@@ -13,10 +13,14 @@
 #include "Particles/ParticleSystem.h"
 #include "DrawDebugHelpers.h"
 #include "PlayerInfoState.h"
+#include "Engine/StaticMeshActor.h"
+#include "PhysicsEngine/RadialForceComponent.h"
+
 
 class AGameState;
 class UGameplayStatics;
 // Sets default values
+//TODO GET TYPE OF GRENADE
 AProjectile::AProjectile()
 {
 	SetReplicateMovement(true);
@@ -59,12 +63,29 @@ AProjectile::AProjectile()
 	{
 		ExplosionEffect = DefaultExplosionEffect.Object;
 	}
+
+
+		ExplosionForce = CreateDefaultSubobject<URadialForceComponent>(TEXT("Radial Force Comp"));
+		ExplosionForce->SetupAttachment(RootComponent);
+		ExplosionForce->Radius = 500.f;
+		ExplosionForce->ImpulseStrength = 100000.f;
+		ExplosionForce->bAutoActivate = false;
+	
 	
 }
 
 UProjectileMovementComponent* AProjectile::GetProjectileMovement()
 {
 	return ProjectileMovementComponent;
+}
+
+FVector AProjectile::CalcImpactPoint(AStaticMeshActor* StaticMeshActor)
+{
+	FVector GrenadeLocation = GetActorLocation();
+	FVector MeshLocation = StaticMeshActor->GetActorLocation();
+
+	FVector ImpactPoint = MeshLocation + (MeshLocation - GrenadeLocation).GetSafeNormal() * ExplosionForce->Radius;
+	return ImpactPoint;
 }
 
 void AProjectile::SetFiringPlayer(AFPSCharacter* FP)
@@ -87,6 +108,9 @@ void AProjectile::BeginPlay()
 		GetInstigator()->MoveIgnoreActorAdd(GetInstigator());
 	}
 
+	if (bIsGrenade) {
+		GetWorld()->GetTimerManager().SetTimer(ExplosionTimerHandle, this, &AProjectile::Explode, ExplosionTime, false);
+	}
 }
 
 // Called every frame
@@ -113,6 +137,9 @@ void AProjectile::FireInDirection(const FVector& Direction)
 void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
+
+	if (bIsGrenade) return;
+
 	// Check if the actor that was hit is a player
 	AFPSCharacter* player = Cast<AFPSCharacter>(GetOwner());
 	APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
@@ -163,9 +190,29 @@ void AProjectile::Destroyed()
 {
 	Super::Destroyed();
 
+}
+
+void AProjectile::Explode()
+{
+
+	ExplosionForce->FireImpulse();
+
 	FVector spawnLocation = GetActorLocation();
 
 	UGameplayStatics::SpawnEmitterAtLocation(this, ExplosionEffect, spawnLocation, FRotator::ZeroRotator, true, EPSCPoolMethod::AutoRelease);
+
+ /*	TArray<AActor*>OverlappedActors;
+	GetOverlappingActors(OverlappedActors);
+
+	for (AActor* Actor : OverlappedActors) {
+		 AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor);
+		if (StaticMeshActor) {
+			FVector ImpactPoint = CalcImpactPoint(StaticMeshActor);
+			FractureStaticMesh(StaticMeshActor, ImpactPoint);
+		}
+	}*/
+
+	Destroy();
 
 }
 

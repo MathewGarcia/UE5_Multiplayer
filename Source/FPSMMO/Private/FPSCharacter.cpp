@@ -2,7 +2,6 @@
 
 
 #include "FPSCharacter.h"
-
 #include "Bomb.h"
 #include "BombSite.h"
 #include "DeadPlayerInfo.h"
@@ -24,10 +23,13 @@
 #include "DrawDebugHelpers.h"
 #include "FPSGameState.h"
 #include "InputMappingContext.h"
+#include "Math/Rotator.h"
+#include "GrenadeWeapon.h"
 #include "ItemSpawnPoint.h"
 #include "FPSMMO/FPSMMOGameModeBase.h"
 
 //TODO: SOMETIMES SERVER PLAYER DOES NOT HAVE A WEAPON ON SPAWN??
+// TODO POSSIBLY CHANGE SOME BULLETS TO BE RAYCAST VS SOME TO BE PROJECTILES??? (MAY JUST SCRAP THIS IDEA)
 // Sets default values
 AFPSCharacter::AFPSCharacter()
 {
@@ -178,23 +180,27 @@ void AFPSCharacter::WeaponSwap(const FInputActionValue& Value)
 
 void AFPSCharacter::SwitchWeapon_Implementation(float Direction)
 {
+
+	int currentIndex = EquippedWeapons.IndexOfByKey(CurrentWeapon);
+	PreviousWeapon = EquippedWeapons[currentIndex];
+
 		if (Direction > 0)
 		{
 			//this means we're going up
 			if (EquippedWeapons.Num() > 1)
 			{
-				if (CurrentWeapon != EquippedWeapons[1]) {
-					PreviousWeapon = EquippedWeapons[0];
-					UseWeapon(EquippedWeapons[1]);
+				int next = (currentIndex+1) % EquippedWeapons.Num();
+				if (CurrentWeapon != EquippedWeapons[next]) {
+					UseWeapon(EquippedWeapons[next]);
 				}
 			}
 		}
 		else
 		{
 			if (EquippedWeapons.Num() > 1) {
-				if (CurrentWeapon != EquippedWeapons[0]) {
-					PreviousWeapon = EquippedWeapons[1];
-					UseWeapon(EquippedWeapons[0]);
+				int last = (currentIndex - 1 + EquippedWeapons.Num()) % EquippedWeapons.Num();
+				if (CurrentWeapon != EquippedWeapons[last]) {
+					UseWeapon(EquippedWeapons[last]);
 				}
 			}
 
@@ -546,7 +552,7 @@ void AFPSCharacter::PerformSlide(float DeltaTime)
 	// Get ground slope
 	FHitResult Hit;
 	FVector StartTrace = GetActorLocation();
-	FVector EndTrace = StartTrace - FVector(0.f, 0.f, 200.f); // 200 is an arbitrary value
+	FVector EndTrace = StartTrace - FVector(0.f, 0.f, 200.f); 
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 	GetWorld()->LineTraceSingleByChannel(Hit, StartTrace, EndTrace, ECC_Visibility, QueryParams);
@@ -554,7 +560,7 @@ void AFPSCharacter::PerformSlide(float DeltaTime)
 	GroundSlope = FVector::DotProduct(Hit.ImpactNormal, InitialSlideVelocity.GetSafeNormal());
 
 	// Decrease speed due to friction
-	float Friction = 200.0f; // adjust this value as necessary
+	float Friction = 200.0f; 
 	InitialSlideVelocity -= Friction * DeltaTime * InitialSlideVelocity.GetSafeNormal();
 	// Calculate the slide direction
 	FVector Down = -GetActorUpVector();
@@ -570,7 +576,7 @@ void AFPSCharacter::PerformSlide(float DeltaTime)
 	}
 
 
-	float CurrentSlideSpeed = GroundSlope * InitialSlideVelocity.Size() * 10;
+	float CurrentSlideSpeed = GroundSlope * InitialSlideVelocity.Size() * 2;
 	float NewSlideSpeed = FMath::Max(MinimumSlideSpeed, CurrentSlideSpeed);
 	GetCharacterMovement()->Velocity = SlideDirection * NewSlideSpeed;
 }
@@ -1113,7 +1119,7 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 	spawnParameters.Instigator = this;
 	spawnParameters.Owner = this;
 
-	FVector Offset = SpawnRotation.Vector() * 25;  // Change '100' to whatever offset distance you want
+	FVector Offset = SpawnRotation.Vector() * 25; 
 	SpawnLocation += Offset;
 	SpawnRotation.Normalize();
 
@@ -1139,18 +1145,29 @@ void AFPSCharacter::SpawnProjectile_Implementation(FVector SpawnLocation, FRotat
 			FVector LaunchDirection = SpawnRotation.Vector();
 			LaunchDirection *= CurrentWeapon->WeaponDistance;
 			bullet->FireInDirection(LaunchDirection);
-
-			//
-			// // Calculate the end point of the bullet's trajectory
-			// FVector BulletTrajectoryEndPoint = SpawnLocation + (LaunchDirection * 10000); // Change this multiplier as needed depending on how far you want the trajectory to go
-			//
-			// // Draw the debug line following the bullet's trajectory
-			// DrawDebugLine(GetWorld(), SpawnLocation, BulletTrajectoryEndPoint, FColor::Red, true, 1, 0, 2);
 		}
 		if(bIsADS)
 		ApplyRecoil();
 	}
 
+}
+void AFPSCharacter::SpawnGrenade_Implementation(FVector SpawnLocation, FRotator SpawnRotation)
+{
+	FActorSpawnParameters spawnParameters;
+	spawnParameters.Instigator = this;
+	spawnParameters.Owner = this;
+
+	FVector Offset = SpawnRotation.Vector() * 25;
+	SpawnLocation += Offset;
+	SpawnRotation.Normalize();
+	if (GrenadeWeapon) {
+		if (AProjectile* Grenade = GetWorld()->SpawnActor<AProjectile>(GrenadeProjectile, SpawnLocation, SpawnRotation, spawnParameters)) {
+			FVector LaunchDirection = SpawnRotation.Vector();
+			LaunchDirection *= 20;
+			Grenade->FireInDirection(LaunchDirection);
+			UE_LOG(LogTemp, Warning, TEXT("Spawned Grenade"));
+		}
+	}
 }
 
 
@@ -1332,19 +1349,45 @@ bool AFPSCharacter::IsButtonPressed(FString Button)
 void AFPSCharacter::HandleInteract_Implementation()
 {
 	if (HasAuthority()) {
-		if (bInCollision)
+		if (bInCollision && WeaponCollided)
 		{
-			//add the weapon to the equip
-			if (WeaponCollided) {
+			bool isWeaponEligible = false;
+			//check if the spawn point exists
+			if (WeaponCollided->GetSpawnPoint()) {
+				//if it does check if the spawn point teamID matches our teamID this will alternate based on if we match teamID or not
+				isWeaponEligible = WeaponCollided->GetSpawnPoint()->SpawnedTeam == Cast<APlayerInfoState>(GetPlayerState())->TeamId;
+
+			}
+			else {
+				//if the spawn point doesnt exist aka the weapon was dropped etc. it no longer matters
+				isWeaponEligible = true;
+			}
+			if (isWeaponEligible) {
+				//add the weapon to the equip
 				EquipWeapon(WeaponCollided);
-				}
+			}
 		}
 	}
 	else
 	{
-		if (bInCollision) {
-			if (WeaponCollided)
+
+		if (bInCollision && WeaponCollided)
+		{
+			bool isWeaponEligible = false;
+			//check if the spawn point exists
+			if (WeaponCollided->GetSpawnPoint()) {
+				//if it does check if the spawn point teamID matches our teamID
+				isWeaponEligible = WeaponCollided->GetSpawnPoint()->SpawnedTeam == Cast<APlayerInfoState>(GetPlayerState())->TeamId;
+
+			}
+			else {
+				//if the spawn point doesnt exist aka the weapon was dropped etc. it no longer matters
+				isWeaponEligible = true;
+			}
+			if (isWeaponEligible) {
+				//add the weapon to the equip
 				ServerEquipWeapon(WeaponCollided);
+			}
 		}
 	}
 }
@@ -1458,13 +1501,14 @@ void AFPSCharacter::ServerTick(float DeltaTime)
 	}
 	else if (GroundSlope >= -0.1f && GroundSlope <= 0.1f)
 	{
-		// Allow sliding on flat surfaces for a short duration
-		float SlideDuration = 1.0f; // Adjust this value as necessary
-		if (GetWorld()->GetTimeSeconds() - SlideStartTime >= SlideDuration)
+		// Allow sliding on flat surfaces for a short duration or if we are no longer moving on the ground end the slide
+		float SlideDuration = 0.6f; 
+		if (GetWorld()->GetTimeSeconds() - SlideStartTime >= SlideDuration || !GetMovementComponent()->IsMovingOnGround())
 		{
 			EndSlide();
 		}
 	}
+
 
 }
 
@@ -1517,7 +1561,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 	PEI->BindAction(InputActions->InputReload, ETriggerEvent::Triggered, this, &AFPSCharacter::StartReload);
 	PEI->BindAction(InputActions->InputTaccom, ETriggerEvent::Triggered, this, &AFPSCharacter::OpenTaccom);
 	PEI->BindAction(InputActions->InputScoreboard, ETriggerEvent::Triggered, this, &AFPSCharacter::ManageScoreboard);
-
+	PEI->BindAction(InputActions->InputTactical, ETriggerEvent::Triggered, this, &AFPSCharacter::StartTactical);
 
 
 }
@@ -1628,6 +1672,22 @@ void AFPSCharacter::Fire(FTransform SocketTransform)
 
 	CurrentWeapon->AmmoInClip = FMath::Clamp(CurrentWeapon->AmmoInClip - 1, 0, CurrentWeapon->MaxAmmoInClip);
 
+}
+
+void AFPSCharacter::ServerStartTactical_Implementation()
+{
+	FVector FireLocation = FPSCameraComponent->GetComponentLocation() + GetActorForwardVector();
+	FRotator Rotation = GetActorRotation();
+	SpawnGrenade(FireLocation, Rotation);
+}
+
+bool AFPSCharacter::ServerStartTactical_Validate() {
+	return true;
+}
+
+void AFPSCharacter::StartTactical(const FInputActionValue& Val)
+{
+	ServerStartTactical();
 }
 
 void AFPSCharacter::ServerStartFire_Implementation(FTransform SocketTransform)
@@ -1880,4 +1940,5 @@ void AFPSCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSCharacter, DeathEXP);
 	DOREPLIFETIME(AFPSCharacter, DeathGold);
 	DOREPLIFETIME(AFPSCharacter, CurrentClimbingState);
+	DOREPLIFETIME(AFPSCharacter, GrenadeWeapon);
 }

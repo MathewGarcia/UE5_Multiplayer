@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TeamEnum.h"
 #include "ItemSpawnPoint.generated.h"
 
 class AWeapon;
@@ -17,7 +18,7 @@ public:
 	// Sets default values for this actor's properties
 	AItemSpawnPoint();
 
-	UPROPERTY(EditAnywhere, Category = "Weapon To Spawn")
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "Weapon To Spawn")
 		TSubclassOf<AWeapon>WeaponToSpawn;
 
 	UPROPERTY()
@@ -32,6 +33,9 @@ public:
 		void ServerSpawnItem();
 
 	void OnWeaponPickedUp();
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+		ETeam SpawnedTeam;
 
 private:
 	FTimerHandle RespawnTimer;

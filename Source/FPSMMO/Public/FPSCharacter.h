@@ -18,6 +18,8 @@ class AWeapon;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
+class AGrenadeWeapon;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerReadyDelegate,AFPSCharacter*,NewCharacter);
 
 UENUM(BlueprintType)
@@ -67,6 +69,12 @@ public:
 	bool ServerStartFire_Validate(FTransform SocketTransform);
 
 	void Fire(FTransform SocketTransform);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerStartTactical();
+
+	void StartTactical(const FInputActionValue& Val);
+
 
 	UPROPERTY(Replicated,EditAnywhere, BlueprintReadWrite, Category = "Shield")
 	float MaxShield;
@@ -294,6 +302,10 @@ public:
 	FOnPlayerReadyDelegate OnPlayerReady;
 
 		bool IsLookingAtWall();
+
+		//grenades
+		UPROPERTY(Replicated, EditAnywhere, Category = "Grenades")
+			 TSubclassOf<AGrenadeWeapon> GrenadeWeapon;
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -354,6 +366,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
 		TSubclassOf<class AProjectile> ProjectileClass;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile")
+		TSubclassOf<class AProjectile> GrenadeProjectile;
+
 	// Flag to control firing 
 	uint32 bCanFire : 1;
 
@@ -398,7 +413,10 @@ protected:
 	UFUNCTION(NetMulticast, Reliable)
 		void SpawnProjectile(FVector SpawnLocation, FRotator SpawnRotation);
 		void SpawnProjectile_Implementation(FVector SpawnLocation, FRotator SpawnRotation);
-		
+
+		UFUNCTION(NetMulticast, Reliable)
+		void SpawnGrenade(FVector SpawnLocation, FRotator SpawnRotation);
+		void SpawnGrenade_Implementation(FVector SpawnLocation, FRotator SpawnRotation);
 
 	AProjectile* Projectile;
 
@@ -445,7 +463,6 @@ protected:
 	const float FallBackDuration = 0.5;
 
 	FTimerHandle ClimbTimerHandle;
-
 
 
 	void ApplyRecoil();
