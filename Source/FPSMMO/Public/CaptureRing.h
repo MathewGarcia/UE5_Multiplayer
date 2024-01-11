@@ -67,6 +67,9 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void ServerDropWeapon();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerHandleOverlap(AFPSCharacter* Player);
+
 	void DropWeapon();
 
 	void IncrementRingPoints();

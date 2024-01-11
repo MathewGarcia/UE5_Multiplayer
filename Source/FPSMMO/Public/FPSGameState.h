@@ -14,7 +14,7 @@ struct FDeadPlayerInfo;
 class AFPSCharacter;
 class ABombSite;
 class ABomb;
-class ULane;
+class ALane;
 /**
  * 
  */
@@ -26,6 +26,7 @@ class FPSMMO_API AFPSGameState : public AGameStateBase
 	GENERATED_BODY()
 
 public:
+	AFPSGameState();
 
 		UPROPERTY(Replicated)
 		bool bIsBombPlanted;
@@ -101,17 +102,25 @@ public:
 			float SpawnRingTimer;
 
 		UPROPERTY(Replicated,EditAnywhere, Category = "TopLane")
-			ULane* TopLane;
+			ALane* TopLane;
 
 		UPROPERTY(Replicated,EditAnywhere, Category = "MidLane")
-			ULane* MidLane;
+			ALane* MidLane;
 
 		UPROPERTY(Replicated,EditAnywhere, Category = "BotLane")
-			ULane*BotLane;
+			ALane*BotLane;
 
 		bool CanCapture(ACaptureRing*currentRing);
 
 		void InitLanes();
+
+		UFUNCTION(Server, Reliable)
+		void ServerInitLanes();
+
+		UFUNCTION(Server, Reliable, WithValidation)
+		void ServerRingUpdate(ACaptureRing* ring);
+		void ServerRingUpdate_Implementation(ACaptureRing* ring);
+		bool ServerRingUpdate_Validate(ACaptureRing* ring);
 
 		void RingUpdate(ACaptureRing*ring);
 private:
@@ -122,6 +131,8 @@ private:
 	AFPSMMOGameModeBase* GM;
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	//virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags);
 
 	virtual void BeginPlay() override;
 };

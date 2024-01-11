@@ -49,6 +49,12 @@ bool AFPSGameState::ServerUpdateDeadPlayers_Validate(float DeltaSeconds)
 }
 
 
+AFPSGameState::AFPSGameState()
+{
+	bReplicates = true;
+	bReplicateUsingRegisteredSubObjectList = true;
+}
+
 void AFPSGameState::BombTimerEnded(ABomb*bomb)
 {
 
@@ -200,6 +206,7 @@ void AFPSGameState::SpawnCaptureRing()
 
 bool AFPSGameState::CanCapture(ACaptureRing* currentRing)
 {
+
 	if (currentRing == SpawnedCaptureRing) return true;
 
 	bool result = false;
@@ -270,8 +277,26 @@ void AFPSGameState::InitLanes()
 
 }
 
+void AFPSGameState::ServerInitLanes_Implementation()
+{
+	InitLanes();
+}
+
+
+void AFPSGameState::ServerRingUpdate_Implementation(ACaptureRing* ring)
+{
+	RingUpdate(ring);
+}
+
+bool AFPSGameState::ServerRingUpdate_Validate(ACaptureRing* ring)
+{
+	return true;
+}
+
 void AFPSGameState::RingUpdate(ACaptureRing* ring)
 {
+	if (!HasAuthority()) return;
+
 	switch (ring->lane) {
 
 	case ELane::ELane_Top:
@@ -307,6 +332,7 @@ void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AFPSGameState, BotLane);
 }
 
+
 void AFPSGameState::BeginPlay()
 {
 	Super::BeginPlay();
@@ -317,10 +343,11 @@ void AFPSGameState::BeginPlay()
 	if (HasAuthority()) {
 		GetWorld()->GetTimerManager().SetTimer(BeginPlayTimerHandle, this, &AFPSGameState::SpawnCaptureRing, 0.5f, false);
 		GetWorld()->GetTimerManager().SetTimer(SpawnRingTimerHandle, this, &AFPSGameState::SpawnCaptureRing, SpawnRingTimer, true);
+		TopLane = NewObject<ALane>(this);
+		MidLane = NewObject<ALane>(this);
+		BotLane = NewObject<ALane>(this);
+		InitLanes();
 	}
-	TopLane = NewObject<ULane>(this);
-	MidLane = NewObject<ULane>(this);
-	BotLane = NewObject<ULane>(this);
-	InitLanes();
+	
 
 }

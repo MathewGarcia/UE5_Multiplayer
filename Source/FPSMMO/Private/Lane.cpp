@@ -3,15 +3,21 @@
 
 #include "Lane.h"
 #include "TeamEnum.h"
+#include "Net/UnrealNetwork.h"
 #include "CaptureRing.h"
 
 
-void ULane::Delete(ACaptureRing* ringToDelete)
+ALane::ALane()
+{
+	bReplicates = true;
+}
+
+void ALane::Delete(ACaptureRing* ringToDelete)
 {
 	//root node would not be able to be destroyed since the ACaptureRing* would be null. Which is good we don't want to destroy the root node?
 
-	ULane* current = this;
-	ULane* parent = nullptr;
+	ALane* current = this;
+	ALane* parent = nullptr;
 
 	while (current && ringToDelete != current->ring) {
 
@@ -35,16 +41,18 @@ void ULane::Delete(ACaptureRing* ringToDelete)
 				this->ring = nullptr;
 			}
 		}
-		current->ring->Destroy();
-		current->ConditionalBeginDestroy();
+		if (current && current->ring) {
+			current->ring->Destroy();
+			current->ConditionalBeginDestroy();
+		}
 }
 
-void ULane::Insert(ACaptureRing*ringToAdd)
+void ALane::Insert(ACaptureRing*ringToAdd)
 {
-	ULane* NewLane = NewObject<ULane>();
+	ALane* NewLane = NewObject<ALane>();
 	NewLane->ring = ringToAdd;
 
-	ULane* current = this;
+	ALane* current = this;
 	while (current) {
 		if (ringToAdd->TeamId == ETeam::TEAM_RED) {
 			if (current->LChild == nullptr) {
@@ -63,9 +71,9 @@ void ULane::Insert(ACaptureRing*ringToAdd)
 	}
 }
 
-bool ULane::CanCapture(ACaptureRing* currentRing)
+bool ALane::CanCapture(ACaptureRing* currentRing)
 {
-	ULane* current = this;
+	ALane* current = this;
 	int safetyCounter = 0;
 
 	while (current)
@@ -77,7 +85,7 @@ bool ULane::CanCapture(ACaptureRing* currentRing)
 		}
 
 		// Determine direction to go based on the team color
-		ULane* nextNode = (currentRing->TeamId == ETeam::TEAM_RED) ? current->LChild : current->RChild;
+		ALane* nextNode = (currentRing->TeamId == ETeam::TEAM_RED) ? current->LChild : current->RChild;
 
 		if (!nextNode) {
 			UE_LOG(LogTemp, Warning, TEXT("Next node is null, breaking out of loop"));
@@ -94,3 +102,13 @@ bool ULane::CanCapture(ACaptureRing* currentRing)
 	}
 	return false;
 }
+
+void ALane::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALane, RChild);
+	DOREPLIFETIME(ALane, LChild);
+}
+
+

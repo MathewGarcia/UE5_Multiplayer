@@ -36,23 +36,37 @@ void ACaptureRing::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AFPSCharacter* player = Cast<AFPSCharacter>(OtherActor);
-	if(player)
+	if (player)
 	{
-		APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(player->GetPlayerState());
-		if(PlayerInfoState && PlayerInfoState->TeamId != this->TeamId &&  GS->CanCapture(this))
+		if (HasAuthority())
 		{
-			if (HasAuthority()) {
-				GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
-			}
-			UE_LOG(LogTemp, Warning, TEXT("IN RING"));
-		}
-		else {
-			if (!GS->CanCapture(this)) {
-				UE_LOG(LogTemp, Warning, TEXT("OUT OF SEQUENCE"));
-
-			}
+			ServerHandleOverlap(player);
 		}
 	}
+}
+
+
+void ACaptureRing::ServerHandleOverlap_Implementation(AFPSCharacter* Player)
+{
+    if (Player)
+    {
+        APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(Player->GetPlayerState());
+        if ((this == GS->SpawnedCaptureRing) || PlayerInfoState && PlayerInfoState->TeamId != this->TeamId && GS->CanCapture(this))
+        {
+				GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
+				UE_LOG(LogTemp, Warning, TEXT("IN RING"));
+			
+        }
+        else 
+        {
+            UE_LOG(LogTemp, Warning, TEXT("OUT OF SEQUENCE"));
+        }
+    }
+}
+
+bool ACaptureRing::ServerHandleOverlap_Validate(AFPSCharacter* Player)
+{
+    return true; // Add additional validation if needed
 }
 
 void ACaptureRing::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
@@ -114,8 +128,10 @@ void ACaptureRing::IncrementRingPoints()
 			}
 
 			if (GS) {
-				//update to delete the ring.
-				GS->RingUpdate(this);
+				if (HasAuthority()) {
+					//update to delete the ring.
+					GS->RingUpdate(this);
+				}
 			}
 		}
 	}
