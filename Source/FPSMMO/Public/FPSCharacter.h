@@ -6,6 +6,14 @@
 #include "GameFramework/Character.h"
 #include "FPSCharacter.generated.h"
 
+class USoundCue;
+
+namespace SkeletalMeshImportData
+{
+	struct FBone;
+}
+
+class UNiagaraSystem;
 class ABombSite;
 class ABomb;
 class AFPSGameState;
@@ -19,6 +27,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class AGrenadeWeapon;
+class UProceduralMeshComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerReadyDelegate,AFPSCharacter*,NewCharacter);
 
@@ -39,7 +48,17 @@ enum class ClimbingState : uint8
 	Climbing UMETA(DisplayName = "Climbing")
 };
 
+USTRUCT(BlueprintType)
+struct FBoneDamageInfo
+{
+	GENERATED_BODY();
 
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly)
+	float TotalDamage = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float DamageThreshold;
+};
 
 UCLASS()
 class FPSMMO_API AFPSCharacter : public ACharacter
@@ -102,8 +121,6 @@ public:
 		void ServerEquipWeapon(AWeapon* WeaponToEquip);
 
 	void OnWeaponEquipped(AWeapon*WeaponToEquip);
-
-
 
 	AWeapon* GetCurrentWeapon();
 
@@ -232,6 +249,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
 		FTransform ADSWeaponTransform = FTransform(FQuat::Identity, FVector(0, 0, 0), FVector(1, 1, 1));
 
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Particles")
+		UNiagaraSystem*BloodParticle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ADS")
 		FTransform DefaultWeaponTransform;
@@ -245,7 +264,14 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Slide")
 		float GroundSlope;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Mouse Sens")
+	float MouseSens = 0.3;
+
+	void SetSensitivity(float NewMouseSens);
+
 	void SetCanPlant(bool bCanPlant);
+
+	void OpenMenu(const FInputActionValue&Value);
 
 	bool GetCanPlant();
 
@@ -287,7 +313,7 @@ public:
 
 
 	FTimerHandle DestructionTimer;
-	float TimeBeforeDestroy = 2.f;
+	float TimeBeforeDestroy = 5.f;
 
 	void SetDeathEXP(int32 NewDeathEXP);
 
@@ -306,6 +332,55 @@ public:
 		//grenades
 		UPROPERTY(Replicated, EditAnywhere, Category = "Grenades")
 			 TSubclassOf<AGrenadeWeapon> GrenadeWeapon;
+
+			 void AttachWeaponToCharacter(AWeapon* Weapon);
+
+			 UFUNCTION()
+			 void OnRep_CurrentWeapon();
+
+			UFUNCTION(BlueprintCallable, Category = "Health")
+		virtual float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
+	UPROPERTY(Replicated)
+		TArray<FHitResult> HitResults;
+
+		UPROPERTY()
+		TMap<FName, FBoneDamageInfo>BoneDamageThreshold;
+
+	UPROPERTY(EditAnywhere, Category = "BloodSplatter")
+	UNiagaraSystem* BloodSplatter;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void SpawnDismembermentBlood(const FHitResult& Hit);
+
+	UCameraComponent* GetCamera();
+
+	void Teleport();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerTeleport();
+
+	FVector RecallLocation;
+
+	UPROPERTY(Replicated,EditAnywhere, Category = "FootSteps")
+	USoundCue* GroundCue;
+
+	UPROPERTY(Replicated,EditAnywhere, Category = "FootSteps")
+	USoundCue* WoodCue;
+
+	UPROPERTY(Replicated,EditAnywhere, Category = "FootSteps")
+	USoundCue* MetalCue;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPlayFootStep(const FVector& Location);
+
+	UFUNCTION(NetMulticast,Reliable)
+	void NetMulticastPlayFootStep(const FVector& Location);
+
+	void PlayFootStep(const FVector& Location);
+
+	void DetermineSurfaceAndPlaySound(const FVector& Location);
+
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Sliding)
 		bool bIsSliding;
@@ -336,16 +411,25 @@ private:
 
 	AFPSGameState* GS;
 
+	bool bMenuOpen = false;
 
 	bool bCanOpenMarket;
 
-	
+
+	void CopySkeletalMeshToPrecedual(USkeletalMeshComponent* SkeletalMeshComponent, int32 LODIndex, UProceduralMeshComponent* ProcMeshComponent);
+
+	UPROPERTY()
+	FTimerHandle TeleportTimerHandle;
+
+	UPROPERTY()
+	FTimerHandle RecallTimerHandle;
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UFUNCTION(BlueprintCallable, Category = "Health")
-		virtual float TakeDamage(float DamageTaken, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+
 
 	virtual void Jump() override;
 
@@ -357,6 +441,7 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "WeaponMesh")
 		class USkeletalMeshComponent* WeaponMesh;
+
 
 	// First-person mesh
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
@@ -401,18 +486,18 @@ protected:
 		TSubclassOf<UpHUD> pHUDClass;
 
 
-	UFUNCTION()
-		void OnRep_CurrentWeapon();
-
-	void SetFPSMesh();
+	void SetFPSMesh(AWeapon*Weapon);
 
 
 	UPROPERTY()
 		AFPSPlayerController* FPSPC;
 
+		UFUNCTION(Server, Reliable)
+		void ServerSpawnProjectile(FVector SpawnLocation, FRotator SpawnRotation);
+
+
 	UFUNCTION(NetMulticast, Reliable)
-		void SpawnProjectile(FVector SpawnLocation, FRotator SpawnRotation);
-		void SpawnProjectile_Implementation(FVector SpawnLocation, FRotator SpawnRotation);
+	void Firing();
 
 		UFUNCTION(NetMulticast, Reliable)
 		void SpawnGrenade(FVector SpawnLocation, FRotator SpawnRotation);
@@ -490,6 +575,8 @@ public:
 	void StartADS(const FInputActionValue& InputActionValue);
 	void ManageScoreboard(const FInputActionValue& InputActionValue);
 	bool bScoreboardOpen;
+	void StartTeleport(const FInputActionValue& InputActionValue);
+
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 

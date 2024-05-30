@@ -26,6 +26,14 @@ void APlayerHUD::UpdateText(FText text)
 	}
 }
 
+void APlayerHUD::SetMenuVisibility(ESlateVisibility VisibilityType)
+{
+	if(HUDWidget)
+	{
+		HUDWidget->SetMenuVisibility(VisibilityType);
+	}
+}
+
 void APlayerHUD::OpenTaccom(bool bIsOpened)
 {
 	if (bIsOpened)

@@ -3,9 +3,15 @@
 
 #include "Weapon.h"
 #include "FPSCharacter.h"
+#include "FPSGameState.h"
 #include "FPSPlayerController.h"
+#include "ItemSpawnPoint.h"
 #include "PlayerHUD.h"
 #include "Components/BoxComponent.h"
+#include "NiagaraComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "EntitySystem/MovieSceneEntitySystemRunner.h"
 
 #define LOCTEXT_NAMESPACE "Gameplay"
 
@@ -20,7 +26,9 @@ AWeapon::AWeapon()
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetOwnerNoSee(true);
+	WeaponMesh->SetRenderCustomDepth(true);
 	RootComponent = WeaponMesh;
+
 
 	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionComp"));
 	BoxCollision->SetupAttachment(WeaponMesh);
@@ -56,9 +64,24 @@ void AWeapon::SetPickUp(bool isPickedUp)
 {
 	bPickedUp = isPickedUp;
 	BoxCollision->SetGenerateOverlapEvents(!bPickedUp);
+	if(GetWorld()->GetTimerManager().IsTimerActive(DespawnTimer))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(DespawnTimer);
+	}
+
 	if (!bPickedUp) {
 		SetOwner(nullptr);
+		SetWeaponStencil();
 		SetActorHiddenInGame(false);
+		
+		GetWorld()->GetTimerManager().SetTimer(DespawnTimer, [this]()
+		{
+				Destroy();
+		}, DespawnTime,false);
+	}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("Set pick up is true, so %s won't be dropped"),*GetName());
+		WeaponMesh->SetCustomDepthStencilValue(0);
 	}
 }
 
@@ -135,6 +158,14 @@ void AWeapon::BeginPlay()
 	BoxCollision->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnBoxBeginOverlap);
 	BoxCollision->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnBoxEndOverlap);
 
+	if(AFPSGameState*GS = Cast<AFPSGameState>(GetWorld()->GetGameState()))
+	{
+		FTimerHandle TH;
+		GetWorld()->GetTimerManager().SetTimer(TH, [GS,this]()
+		{
+			GS->SetWeaponStencil(this);
+		}, 0.5f ,false);
+	}
 }
 
 
@@ -143,6 +174,18 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+void AWeapon::SetWeaponStencil()
+{
+	if (SpawnPoint && SpawnPoint->SpawnedTeam == ETeam::TEAM_RED)
+	{
+		WeaponMesh->SetCustomDepthStencilValue(1);
+	}
+	else if (SpawnPoint && SpawnPoint->SpawnedTeam == ETeam::TEAM_BLUE)
+	{
+		WeaponMesh->SetCustomDepthStencilValue(2);
+	}
 }
 
 void AWeapon::ServerResetReload_Implementation()
@@ -257,4 +300,5 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, WeaponSpread);
 	DOREPLIFETIME(AWeapon, WeaponEXP);
 	DOREPLIFETIME(AWeapon, WeaponGold);
+	DOREPLIFETIME(AWeapon, SpawnPoint);
 }

@@ -12,6 +12,12 @@ class AFPSCharacter;
 /**
  * 
  */
+UENUM(Blueprintable)
+enum class EConnection : uint8 {
+	Lobby UMETA(DisplayName = "Lobby"),
+	Connecting UMETA(DisplayName = "Connecting"),
+	Connected UMETA(DisplayName = "Connected")
+};
 UCLASS()
 class FPSMMO_API APlayerInfoState : public APlayerState
 {
@@ -90,11 +96,23 @@ public:
 
 	UPROPERTY()
 	bool bIsInLobby;
+
+	EConnection GetConnectionState();
+
+	void SetConnectionState(EConnection newConnectionState);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerUpgradeShield();
+
+	UPROPERTY(Replicated)
+	float MaxShield = 100;
 private:
 	UPROPERTY(Replicated)
 		int Gold;
 
 	APlayerController* PC;
+
+	EConnection ConnectionState;
 
 	AFPSCharacter* player;
 

@@ -8,7 +8,7 @@ public class FPSMMOClientTarget : TargetRules
 	public FPSMMOClientTarget( TargetInfo Target) : base(Target)
 	{
         Type = TargetType.Client;
-        DefaultBuildSettings = BuildSettingsVersion.V2;
+        DefaultBuildSettings = BuildSettingsVersion.V4;
         ExtraModuleNames.Add("FPSMMO");
 	}
 }

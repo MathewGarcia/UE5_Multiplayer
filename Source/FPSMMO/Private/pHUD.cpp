@@ -7,17 +7,67 @@
 #include "FPSCharacter.h"
 #include "FPSGameState.h"
 #include "PlayerInfoState.h"
-
+#include "Components/EditableTextBox.h"
+#include "Components/Image.h"
+#include "Components/Overlay.h"
 
 UpHUD::UpHUD(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 
 }
 
+void UpHUD::TextCommitted(const FText&Text, ETextCommit::Type CommitMethod)
+{
+}
+
+void UpHUD::TextChanged(const FText& Text)
+{
+	FString InputString = Text.ToString();
+
+	if(InputString.IsNumeric() && FCString::Atof(*InputString) >= 0.0f)
+	{
+		if(player)
+		{
+			player->SetSensitivity(FCString::Atof(*InputString));
+		}
+	}
+}
+
+void UpHUD::SetMenuVisibility(ESlateVisibility VisibilityType)
+{
+	Menu->SetVisibility(VisibilityType);
+}
+
+void UpHUD::HideFleshFlash()
+{
+	if(FleshFlash)
+	{
+		FleshFlash->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
 void UpHUD::WidgetUpdateShield(float val)
 {
 	SP = val;
-	UE_LOG(LogTemp, Warning, TEXT("Shield: %f"), val);
+	if (ShieldMaterialDynamic) {
+		if (APlayerInfoState*PIS = Cast<APlayerInfoState>(GetOwningPlayerState())) {
+			if (LastPlayerLevel != PIS->GetPlayerLevel())
+			{
+
+				UpdateShieldColor();
+			}
+			if (SP >= 1 || SP <= 0)
+			{
+				ShieldImage->SetOpacity(0.f);
+			}
+			else if (ShieldImage->GetColorAndOpacity().A <= 0.f)
+			{
+				ShieldImage->SetOpacity(0.7f);
+
+			}
+			ShieldMaterialDynamic->SetScalarParameterValue(FName("ClearRadius"), 1 - SP);
+		}
+	}
 
 }
 
@@ -63,6 +113,41 @@ void UpHUD::NativeConstruct()
 	{
 		WidgetUpdateShield(player->GetShield());
 		WidgetUpdateHealth(player->GetHealth());
+
+		ShieldColors.Add(1, FLinearColor::White);
+		ShieldColors.Add(2, FLinearColor::Blue);
+		ShieldColors.Add(3, FLinearColor::Green);
+		ShieldColors.Add(4, FLinearColor::Red);
+		ShieldColors.Add(5, FLinearColor::Yellow);
+
+	}
+	if (ShieldImage) {
+		ShieldImage->SetOpacity(0.f);
+	}
+	SensTextBox->OnTextChanged.AddDynamic(this, &UpHUD::TextChanged);
+	SensTextBox->OnTextCommitted.AddDynamic(this, &UpHUD::TextCommitted);
+
+	if (ShieldMaterial) {
+		ShieldMaterialDynamic = UMaterialInstanceDynamic::Create(ShieldMaterial, this);
+
+		if (ShieldImage && ShieldMaterialDynamic)
+		{
+			ShieldImage->SetBrushFromMaterial(ShieldMaterialDynamic);
+
+				UpdateShieldColor();
+			
+
+			UE_LOG(LogTemp, Warning, TEXT("Created dynamic material"));
+		}
+	}
+
+	if(RecallProgressBar)
+	{
+		RecallProgressBar->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	if(FleshFlash)
+	{
+		FleshFlash->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
 	GetWorld()->GetTimerManager().SetTimer(GameTimeUpdateTimer, this, &UpHUD::UpdateGameTime, 1.0f, true);
@@ -140,6 +225,50 @@ void UpHUD::UpdateDeadPlayerTimer(float RespawnTimeLeft)
 			UE_LOG(LogTemp, Warning, TEXT("GameState failed in UpHUD"));
 		}
 
+}
+
+void UpHUD::UpdateShieldColor()
+{
+	AFPSCharacter* Player = Cast<AFPSCharacter>(GetOwningPlayerPawn());
+	if (Player && Player->IsLocallyControlled()) {
+		if (APlayerInfoState* PIS = Cast<APlayerInfoState>(GetOwningPlayerState())) {
+			int PlayerLevel = PIS->GetPlayerLevel();
+			if (ShieldColors.Contains(PlayerLevel))
+			{
+				ShieldMaterialDynamic->SetVectorParameterValue("ShieldColor", ShieldColors[PlayerLevel]);
+			}
+			else
+			{
+				ShieldMaterialDynamic->SetVectorParameterValue("ShieldColor", FLinearColor::Blue);
+
+			}
+			UE_LOG(LogTemp, Warning, TEXT("Updating Shield Color to: %s"), *ShieldColors[PlayerLevel].ToString());
+
+			LastPlayerLevel = PlayerLevel;
+		}
+	}
+}
+
+void UpHUD::UpdateRecallPB(float CurrentTime)
+{
+	RecallProgressBar->SetPercent(CurrentTime);
+}
+
+void UpHUD::ShowRecallBar()
+{
+	RecallProgressBar->SetVisibility(ESlateVisibility::Visible);
+}
+
+void UpHUD::HideRecallBar()
+{
+	RecallProgressBar->SetVisibility(ESlateVisibility::Collapsed);
+
+}
+
+void UpHUD::PerformFleshFlash()
+{
+	FleshFlash->SetVisibility(ESlateVisibility::Visible);
+	FTimerHandle TH;
 }
 
 void UpHUD::NativeDestruct()

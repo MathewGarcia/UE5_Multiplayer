@@ -6,6 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "FPSGameState.generated.h"
 
+class APortal;
 class AWeapon;
 class ACaptureRing;
 class APlayerInfoState;
@@ -123,16 +124,40 @@ public:
 		bool ServerRingUpdate_Validate(ACaptureRing* ring);
 
 		void RingUpdate(ACaptureRing*ring);
+		
+		void InitiateGame();
+
+		UPROPERTY(EditAnywhere,BlueprintReadWrite, Category = "PreWalls")
+		TArray<AActor*> PreWalls;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Capture Sound")
+		USoundBase* CaptureSound;
+
+		void NotifyPlayerCapture(ACaptureRing* TeamRing);
+
+		void SetWeaponStencil(AWeapon* Weapon);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpawnedSound")
+	USoundBase* SpawnedSound;
+
+	void PlayCaptureRingSpawnedSound();
+
+	UPROPERTY(EditAnywhere, Category = "Portals")
+	TArray<TSoftObjectPtr<APortal>> Portals;
+
+
 private:
 	UPROPERTY(Replicated)
 	ABomb* Bomb;
 
 	UPROPERTY()
 	AFPSMMOGameModeBase* GM;
+
+	FTimerHandle PortalActivationTimerHandle;
+
+
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
-	//virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags);
 
 	virtual void BeginPlay() override;
 };

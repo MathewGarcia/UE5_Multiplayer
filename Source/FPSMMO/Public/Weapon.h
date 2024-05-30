@@ -7,8 +7,11 @@
 #include "Net/UnrealNetwork.h"
 #include "Weapon.generated.h"
 
+class AProjectile;
+class UNiagaraSystem;
 class AItemSpawnPoint;
 class UBoxComponent;
+class UNiagaraComponent;
 UCLASS()
 class FPSMMO_API AWeapon : public AActor
 {
@@ -36,6 +39,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Name")
 		FString WeaponName;
+
 
 	UFUNCTION()
 		void OnRep_PickedUp();
@@ -130,6 +134,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recoil")
 		float ControllerRecoilFactor;
 
+	UPROPERTY(EditAnywhere, Category = "MuzzleFlash")
+		UNiagaraSystem*MuzzleFlash;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponSound")
+		USoundBase*FiringSound;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+		TSubclassOf<AProjectile>ProjectileToSpawn;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponInfo")
+		bool bIsRPG = false;
 
 	float DownwardKick;
 
@@ -140,6 +155,8 @@ public:
 	FRotator CurrentRecoil = FRotator::ZeroRotator;
 
 		FRotator TargetRecoil;
+
+		void SetWeaponStencil();
 
 protected:
 
@@ -164,7 +181,12 @@ private:
 	UPROPERTY(Replicated, EditAnywhere, Category = "Weapon")
 		int32 WeaponGold;
 
-	UPROPERTY()
+	UPROPERTY(Replicated)
 		AItemSpawnPoint* SpawnPoint;
+
+		FTimerHandle DespawnTimer;
+
+		float DespawnTime = 10.f;
+
 
 };

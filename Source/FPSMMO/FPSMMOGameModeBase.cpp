@@ -14,7 +14,6 @@
 #include "PlayerHUD.h"
 #include "Weapon.h"
 #include "GameFramework/HUD.h"
-#include "Steamworks/Steamv153/sdk/public/steam/steam_api.h"
 
 AFPSMMOGameModeBase::AFPSMMOGameModeBase()
 {
@@ -87,12 +86,16 @@ void AFPSMMOGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
     Super::PostLogin(NewPlayer);
 
+    UE_LOG(LogTemp, Warning, TEXT("Post Login"));
     if (HasAuthority() && GS)
     {
+ 
         if (APlayerInfoState* PIS = Cast<APlayerInfoState>(NewPlayer->PlayerState))
         {
+            //TODO we need to move this logic to the lobby and some how pass the state information over.
             UE_LOG(LogTemp, Warning, TEXT("PIS Value: %s"), *PIS->GetName());
             GS->PlayerStates.Add(PIS);
+
         }
     }
 }
@@ -117,25 +120,24 @@ void AFPSMMOGameModeBase::SetRespawnTime()
         float TotalTimeInSeconds = World->GetTimeSeconds();
         float TotalTimeInMin = TotalTimeInSeconds / 60.f;
 
-    	if(TotalTimeInMin <= 5.0f)
+    	if(TotalTimeInMin <= BeginningTime)
         {
-            RespawnTime = 5.0f;
+            RespawnTime = BeginningRT;
         }
-        else if(TotalTimeInMin <= 10.f)
+        else if(TotalTimeInMin <= MiddleTime)
         {
-            RespawnTime = 8.f;
+            RespawnTime = MiddleRT;
         }
-        else if(TotalTimeInMin <= 15.f)
+        else if(TotalTimeInMin <= EndTime)
         {
-            RespawnTime = 12.0f;
+            RespawnTime = EndRT;
         }
-        else if (TotalTimeInMin <= 20.0f)
+        else if (TotalTimeInMin <= OverTime)
         {
-            RespawnTime = 18.f;
+            RespawnTime = OverRT;
         }
     }
 }
-
 
 void AFPSMMOGameModeBase::InitGameState()
 {
@@ -167,6 +169,8 @@ void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
                 NewPlayer->Possess(NewCharacter);
                 NewCharacter->OnPlayerReady.AddDynamic(this, &AFPSMMOGameModeBase::OnPlayerReadyForInitialization);
                 NewCharacter->PrepareForInitialization();
+                NewCharacter->RecallLocation = SpawnLocation;
+               
             }
         }
 
@@ -181,11 +185,14 @@ void AFPSMMOGameModeBase::RestartPlayer(AController* NewPlayer)
 
 bool AFPSMMOGameModeBase::AllPlayersConnected()
 {
-	if(GS)
-    {
-        return GS->PlayerArray.Num() == 2;
+    UE_LOG(LogTemp, Warning, TEXT("Calling All Players Connected"));
+    for (APlayerState* playerState : GS->PlayerArray) {
+        APlayerInfoState* PIS = Cast<APlayerInfoState>(playerState);
+        if (!PIS || PIS->GetConnectionState() != EConnection::Connected) {
+            return false;
+        }
     }
-    return false;
+    return true;
 }
 
 void AFPSMMOGameModeBase::OnPlayerReadyForInitialization(AFPSCharacter* NewCharacter)
@@ -195,6 +202,10 @@ void AFPSMMOGameModeBase::OnPlayerReadyForInitialization(AFPSCharacter* NewChara
         Weapon->SetActorLocation(NewCharacter->GetActorLocation());
         Weapon->SetOwner(NewCharacter);
         NewCharacter->EquipWeapon(Weapon);
+        if (APlayerInfoState* PIS = Cast<APlayerInfoState>(NewCharacter->GetPlayerState()))
+        {
+            NewCharacter->MaxShield = PIS->MaxShield;
+        }
         Weapon->SetPickUp(true);
     }
 }
@@ -203,15 +214,42 @@ void AFPSMMOGameModeBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
+    //this is updating the time and also setting the respawn time in one function.
     SetRespawnTime();
     if (GS) {
         GS->ServerUpdateDeadPlayers(DeltaSeconds);
     }
 
+    if (!bHasMatchStarted && AllPlayersConnected()) {
+        GEngine->AddOnScreenDebugMessage(-1, 200, FColor::Orange, FString::Printf(TEXT("Started Match")));
+        StartMatch();
+        bHasMatchStarted = true;
+
+    }
 }
 
 void AFPSMMOGameModeBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+}
+
+void AFPSMMOGameModeBase::HandleSeamlessTravelPlayer(AController*& C)
+{
+
+    Super::HandleSeamlessTravelPlayer(C);
+
+}
+//TODO NOT RESPAWNING WITH WEAPON AND SAME ISSUES WITH LISTEN SERVER NOT SPAWNING WITH WEAPON.
+void AFPSMMOGameModeBase::StartMatch()
+{
+    UE_LOG(LogTemp, Warning, TEXT("Starting Match"));
+    //get ride of walls, reset the timer in our game etc.
+    if (GS) {
+        GS->SetGameTime(0);
+        GS->InitiateGame();
+    } 
+    else {
+        GEngine->AddOnScreenDebugMessage(-1, 200, FColor::Blue, FString::Printf(TEXT("GS failed")));
+    }
 }

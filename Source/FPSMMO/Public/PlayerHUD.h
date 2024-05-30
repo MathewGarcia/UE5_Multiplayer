@@ -38,15 +38,16 @@ public:
 		UPROPERTY(EditDefaultsOnly, Category = "Scoreboard")
 			TSoftClassPtr<UScoreboardWidget> pScoreboardWidgetClass;
 
-
+			UPROPERTY()
 		UpHUD* HUDWidget;
 
+	UPROPERTY()
 		UTaccomWidget* TaccomWidget;
 
+	UPROPERTY()
 		UMarketWidget* MarketWidget;
 
-		UpHUD* UHUDWidget;
-
+		UPROPERTY()
 		UScoreboardWidget* ScoreboardWidget;
 
 
@@ -59,6 +60,8 @@ public:
 		bool GetMarketOpen();
 
 		void UpdateText(FText text);
+
+		void SetMenuVisibility(ESlateVisibility VisibilityType);
 
 	void OpenTaccom(bool bIsOpened);
 

@@ -12,9 +12,12 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystem.h"
 #include "DrawDebugHelpers.h"
+#include "NiagaraFunctionLibrary.h"
 #include "PlayerInfoState.h"
 #include "Engine/StaticMeshActor.h"
 #include "PhysicsEngine/RadialForceComponent.h"
+#include "Engine/DamageEvents.h"
+#include "FPSMMO/FPSMMOGameModeBase.h"
 
 
 class AGameState;
@@ -70,13 +73,18 @@ AProjectile::AProjectile()
 		ExplosionForce->Radius = 500.f;
 		ExplosionForce->ImpulseStrength = 100000.f;
 		ExplosionForce->bAutoActivate = false;
-	
-	
+
 }
 
 UProjectileMovementComponent* AProjectile::GetProjectileMovement()
 {
 	return ProjectileMovementComponent;
+}
+
+void AProjectile::MulticastSpawnBlood_Implementation(FVector Location, AFPSCharacter* Victim)
+{
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), Victim->BloodParticle, Location, FRotator::ZeroRotator);
+
 }
 
 FVector AProjectile::CalcImpactPoint(AStaticMeshActor* StaticMeshActor)
@@ -87,6 +95,7 @@ FVector AProjectile::CalcImpactPoint(AStaticMeshActor* StaticMeshActor)
 	FVector ImpactPoint = MeshLocation + (MeshLocation - GrenadeLocation).GetSafeNormal() * ExplosionForce->Radius;
 	return ImpactPoint;
 }
+
 
 void AProjectile::SetFiringPlayer(AFPSCharacter* FP)
 {
@@ -100,9 +109,12 @@ void AProjectile::BeginPlay()
 
 	// Set a timer to destroy the projectile after a certain amount of time
 	GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &AProjectile::OnDestroyTimerExpired, DestroyDelay, false);
+	
 
 	CollisionComponent->IgnoreActorWhenMoving(this, true);
 	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
+
+	
 	if(GetInstigator())
 	{
 		GetInstigator()->MoveIgnoreActorAdd(GetInstigator());
@@ -134,8 +146,13 @@ void AProjectile::FireInDirection(const FVector& Direction)
 	ProjectileMovementComponent->Velocity = Direction * ProjectileMovementComponent->InitialSpeed;
 }
 
+void AProjectile::SetFiredWeapon(AWeapon* Weapon)
+{
+	FiredWeapon = Weapon;
+}
+
 void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+                                     UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 
 	if (bIsGrenade) return;
@@ -154,14 +171,30 @@ void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* 
 					return;
 				}
 				if (EnemyPlayer) {
-					APlayerInfoState* EnemyPlayerState = Cast<APlayerInfoState>(EnemyPlayer->GetPlayerState());
-					if (EnemyPlayerState && EnemyPlayerState->TeamId != PlayerInfoState->TeamId)
-					{
-						UGameplayStatics::ApplyPointDamage(OtherActor, Weapon->Damage, NormalImpulse, Hit, GetInstigator()->Controller, this, DamageType);
+
+					if (AFPSMMOGameModeBase* GM = Cast<AFPSMMOGameModeBase>(GetWorld()->GetAuthGameMode())) {
+						//if friendly fire is not on check the team, else we can just deal damage.
+						if (!GM->bFF) {
+							APlayerInfoState* EnemyPlayerState = Cast<APlayerInfoState>(EnemyPlayer->GetPlayerState());
+							if (EnemyPlayerState && EnemyPlayerState->TeamId != PlayerInfoState->TeamId)
+							{
+								EnemyPlayer->HitResults.Add(Hit);
+								EnemyPlayer->TakeDamage(Weapon->Damage, FDamageEvent(), player->GetController(), player);
+								MulticastSpawnBlood(Hit.Location, EnemyPlayer);
+							}
+						}
+						else
+						{
+							EnemyPlayer->HitResults.Add(Hit);
+							EnemyPlayer->TakeDamage(Weapon->Damage, FDamageEvent(), player->GetController(), player);
+							MulticastSpawnBlood(Hit.Location, EnemyPlayer);
+
+							//UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), EnemyPlayer->BloodParticle, Hit.Location, FRotator::ZeroRotator);
+						}
+					
 					}
 				}
 			}
-			//TODO:or Friendly fire is on.
 		}
 		else
 
@@ -174,6 +207,22 @@ void AProjectile::OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* 
 		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Red, TEXT("Player failed"));
 	}
 
+	if(isExplosive)
+	{
+		Explode();
+		if (FiredWeapon)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), FiredWeapon->FiringSound, Hit.Location);
+			UGameplayStatics::ApplyRadialDamage(this, FiredWeapon->Damage, Hit.Location, ExplosionForce->Radius,UDamageType::StaticClass(), TArray<AActor*>(), this, GetOwner()->GetInstigatorController(), true, ECollisionChannel::ECC_Visibility);
+
+			UE_LOG(LogTemp, Warning, TEXT("FiredWeapon is NOT null"));
+
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("FiredWeapon is null"));
+		}
+	}
 
 	Destroy();
 }
@@ -183,6 +232,7 @@ void AProjectile::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	CollisionComponent->IgnoreActorWhenMoving(this, true);
 	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
+
 
 }
 
@@ -201,18 +251,8 @@ void AProjectile::Explode()
 
 	UGameplayStatics::SpawnEmitterAtLocation(this, ExplosionEffect, spawnLocation, FRotator::ZeroRotator, true, EPSCPoolMethod::AutoRelease);
 
- /*	TArray<AActor*>OverlappedActors;
-	GetOverlappingActors(OverlappedActors);
+	
 
-	for (AActor* Actor : OverlappedActors) {
-		 AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor);
-		if (StaticMeshActor) {
-			FVector ImpactPoint = CalcImpactPoint(StaticMeshActor);
-			FractureStaticMesh(StaticMeshActor, ImpactPoint);
-		}
-	}*/
-
-	Destroy();
 
 }
 

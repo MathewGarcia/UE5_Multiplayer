@@ -4,11 +4,13 @@
 #include "PlayerInfoState.h"
 #include "FPSCharacter.h"
 #include "FPSGameState.h"
+#include "FPSPlayerController.h"
+#include "pHUD.h"
 #include "PlayerHUD.h"
 #include "Net/UnrealNetwork.h"
 
 
-//TODO:ADD A PROGRESSION SYSTEM WHERE EXPNEEDED INCREASES AN X AMOUNT
+//TODO:ADD A PROGRESSION SYSTEM WHERE EXP NEEDED INCREASES AN X AMOUNT
 //TODO: HAVE A SET AMOUNT OF EXP FOR KILLING SOMEONE AND AMOUNT OF GOLD. FOR WEAPON AS WELL.
 
 APlayerInfoState::APlayerInfoState()
@@ -31,7 +33,9 @@ void APlayerInfoState::LevelUp()
 		if (CurrentEXP >= EXPNeeded) {
 			CurrentLevel++;
 			SetEXP(0);
-			UpgradeShield();
+			if (HasAuthority()) {
+				UpgradeShield();
+			}
 		}
 	}
 }
@@ -58,19 +62,8 @@ void APlayerInfoState::SetEXP(float EXP)
 
 void APlayerInfoState::UpgradeShield()
 {
-	player = Cast<AFPSCharacter>(GetPawn());
-	if (player)
-	{
-		// Increase the MaxShield by 25%
-		player->MaxShield = player->MaxShield * 1.25;
-
-		// Set the current shield to the new MaxShield
-		player->ServerSetShield(player->MaxShield);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Player failed"));
-	}
+	if(HasAuthority())
+	ServerUpgradeShield();
 }
 
 bool APlayerInfoState::GetInCombat()
@@ -87,6 +80,20 @@ void APlayerInfoState::SetInCombat(bool CombatCond)
 
 void APlayerInfoState::InCombatFalse()
 {
+	if (player) {
+		player->HitResults.Empty();
+
+		for (auto&Elem : player->BoneDamageThreshold)
+		{
+			FBoneDamageInfo& BoneDamageInfo = Elem.Value;
+			BoneDamageInfo.TotalDamage = 0;
+		}
+	}
+	if (AFPSPlayerController* pc = Cast<AFPSPlayerController>(GetOwningController()))
+	{
+		pc->ClientHideFleshFlash();
+	}
+
 	OnRep_InCombat();
 }
 
@@ -94,8 +101,12 @@ void APlayerInfoState::RechargeShield()
 {
 		player = Cast<AFPSCharacter>(GetPawn());
 		if (player) {
-			if(player->GetShield() != player->MaxShield)
-			player->SetShield(player->GetShield() + 10);
+			if (player->GetShield() != player->MaxShield)
+				player->SetShield(player->GetShield() + 10);
+			if (AFPSPlayerController* FPSPC = Cast<AFPSPlayerController>(GetPlayerController())) {
+				FPSPC->ClientUpdateShieldHUD(player->GetShield()/player->MaxShield);
+			}
+			//UE_LOG(LogTemp, Warning, TEXT("Shield: %f / %f"), player->GetShield(), player->MaxShield);
 		}
 	
 	GetWorld()->GetTimerManager().ClearTimer(RechargeHandle);
@@ -139,7 +150,7 @@ void APlayerInfoState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(APlayerInfoState, ConsecutiveKills);
 	DOREPLIFETIME(APlayerInfoState, Deaths);
 	DOREPLIFETIME(APlayerInfoState, SlotLocation);
-
+	DOREPLIFETIME(APlayerInfoState, MaxShield);
 
 }
 
@@ -156,7 +167,7 @@ void APlayerInfoState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-			if (!bInCombat)
+			if ( !bInCombat )
 			{
 				RechargeShield();
 			}
@@ -294,3 +305,42 @@ void APlayerInfoState::SetSlotLocation(int32 NewSlotLocation)
 {
 	SlotLocation = NewSlotLocation;
 }
+
+EConnection APlayerInfoState::GetConnectionState()
+{
+	return ConnectionState;
+}
+
+void APlayerInfoState::SetConnectionState(EConnection newConnectionState)
+{
+	ConnectionState = newConnectionState;
+}
+//TODO we may need to move maxshield into playerstate so we can save our maxshield on dc and when we die.
+void APlayerInfoState::ServerUpgradeShield_Implementation()
+{
+	player = Cast<AFPSCharacter>(GetPawn());
+	if (player)
+	{
+			// Increase the MaxShield by 25%
+			MaxShield *= 1.25;
+			player->MaxShield = MaxShield;
+		if(AFPSPlayerController*FPSPC = Cast<AFPSPlayerController>(player->GetController()))
+		{
+			FPSPC->ClientUpdateShieldColor();
+		}
+		
+		// Set the current shield to the new MaxShield
+	//	player->ServerSetShield(player->MaxShield);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player failed"));
+	}
+}
+
+bool APlayerInfoState::ServerUpgradeShield_Validate()
+{
+	return true;
+}
+
+

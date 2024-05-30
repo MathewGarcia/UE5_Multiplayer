@@ -55,6 +55,29 @@ public:
 
 	TArray<AFPSPlayerController*> PlayerControllers;
 
+	//respawn times and such
+	UPROPERTY(EditAnywhere, Category = "Respawn Times")
+	float BeginningTime;
+	UPROPERTY(EditAnywhere, Category = "Respawn Times")
+	float MiddleTime;
+	UPROPERTY(EditAnywhere, Category = "Respawn Times")
+	float EndTime;
+	UPROPERTY(EditAnywhere, Category= "Respawn Times")
+	float OverTime;
+
+	UPROPERTY(EditAnywhere, Category ="Respawn Times")
+	float BeginningRT;
+	UPROPERTY(EditAnywhere, Category = "Respawn Times")
+	float MiddleRT;
+	UPROPERTY(EditAnywhere, Category ="Respawn Times")
+	float EndRT;
+	UPROPERTY(EditAnywhere, Category ="Respawn Times")
+	float OverRT;
+	UPROPERTY(EditAnywhere, Category ="Friendly Fire")
+	bool bFF = false;
+
+
+
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Respawning")
@@ -64,11 +87,17 @@ private:
 
 	AFPSGameState* GS;
 
+	bool bHasMatchStarted = false;
+
 protected:
 		virtual void InitGameState() override;
 
 		virtual void Tick(float DeltaSeconds) override;
 
 	virtual void BeginPlay() override;
+
+	virtual void HandleSeamlessTravelPlayer(AController*& C) override;
+
+	void StartMatch();
 
 };

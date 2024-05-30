@@ -12,6 +12,7 @@
 #include "FPSMMO/FPSMMOGameModeBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Portal.h"
 #include "Lane.h"
 
 
@@ -52,7 +53,6 @@ bool AFPSGameState::ServerUpdateDeadPlayers_Validate(float DeltaSeconds)
 AFPSGameState::AFPSGameState()
 {
 	bReplicates = true;
-	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 void AFPSGameState::BombTimerEnded(ABomb*bomb)
@@ -153,7 +153,7 @@ void AFPSGameState::OnRep_UpdatePlayerArray()
 	}
 
 	// Notify that the player list has changed
-	PlayersChanged();
+	PlayersChanged();	
 }
 
 void AFPSGameState::ServerDestroyRing_Implementation()
@@ -192,12 +192,14 @@ void AFPSGameState::SpawnCaptureRing()
 			int32 num = FMath::RandRange(0, TargetPoints.Num() - 1);
 			int32 RandomWeapon = FMath::RandRange(0, Weapons.Num() - 1);
 			SpawnedCaptureRing = GetWorld()->SpawnActor<ACaptureRing>(CaptureRingToSpawn, TargetPoints[num]->GetActorLocation(), TargetPoints[num]->GetActorRotation());
+			PlayCaptureRingSpawnedSound();
 			SpawnedCaptureRing->TeamId = ETeam::TEAM_NONE;
-			SpawnedCaptureRing->SetMaxRingPoints(5);
+			SpawnedCaptureRing->SetMaxRingPoints(5); //arbitrary value for now.
 			if (Weapons.Num() > 0) {
 				SpawnedCaptureRing->WeaponToDrop = Weapons[RandomWeapon];
 			}
 		}
+
 		//timer for how long the tower will stay alive for.
 		GetWorld()->GetTimerManager().SetTimer(DestroyTimerHandle, this, &AFPSGameState::ServerDestroyRing, 120.f);
 }
@@ -316,6 +318,60 @@ void AFPSGameState::RingUpdate(ACaptureRing* ring)
 	}
 }
 
+void AFPSGameState::InitiateGame()
+{
+	UGameplayStatics::GetAllActorsOfClassWithTag(GetWorld(), AActor::StaticClass(), "PreWall", PreWalls);
+	//disbale the walls, reload ammo that was shot.
+	for (AActor* WallActor : PreWalls) {
+		if (WallActor) {
+			WallActor->Destroy();
+		}
+	}
+}
+
+
+void AFPSGameState::NotifyPlayerCapture(ACaptureRing* TeamRing)
+{
+	for (APlayerState* ps : PlayerArray)
+	{
+		if (APlayerInfoState* PIS = Cast<APlayerInfoState>(ps))
+		{
+				if(AFPSPlayerController* PC = Cast<AFPSPlayerController>(PIS->GetOwningController()))
+				{
+					PC->ClientPlayCaptureSound();
+					PC->ClientGlowTower(TeamRing,TeamRing->TeamId,PIS->TeamId);
+				}
+			
+		}
+	}
+}
+
+void AFPSGameState::SetWeaponStencil(AWeapon* Weapon)
+{
+	for (APlayerState* ps : PlayerArray)
+	{
+		if (APlayerInfoState* PIS = Cast<APlayerInfoState>(ps))
+		{
+			if (AFPSPlayerController* PC = Cast<AFPSPlayerController>(PIS->GetPlayerController()))
+			{
+				PC->SetWeaponStencil(Weapon);
+			}
+
+		}
+	}
+}
+
+void AFPSGameState::PlayCaptureRingSpawnedSound()
+{
+	for(APlayerState * ps : PlayerArray)
+	{
+		if(AFPSPlayerController*FPSPC = Cast<AFPSPlayerController>(ps->GetPlayerController()))
+		{
+			FPSPC->PlayCaptureRingSpawned();
+		}
+	}
+}
+
 void AFPSGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -343,6 +399,31 @@ void AFPSGameState::BeginPlay()
 	if (HasAuthority()) {
 		GetWorld()->GetTimerManager().SetTimer(BeginPlayTimerHandle, this, &AFPSGameState::SpawnCaptureRing, 0.5f, false);
 		GetWorld()->GetTimerManager().SetTimer(SpawnRingTimerHandle, this, &AFPSGameState::SpawnCaptureRing, SpawnRingTimer, true);
+		//every 2 min (120 seconds) the portals should activate. if the portals are not empty.
+		if (!Portals.IsEmpty()) {
+			GetWorld()->GetTimerManager().SetTimer(PortalActivationTimerHandle, [this]()
+				{
+					for (TSoftObjectPtr<APortal> portal : Portals)
+					{
+						if (portal) {
+							if (APortal* Portal = portal.Get())
+							{
+								//TODO add sound cue when portals are open and sound cue when someone enters
+								UE_LOG(LogTemp, Warning, TEXT("Activating Portals"));
+								Portal->ServerCanTeleport(true);
+
+								//should set the portals off after 15 seconds.
+								GetWorld()->GetTimerManager().SetTimer(Portal->DeactivationHandle, [this, Portal]()
+									{
+										UE_LOG(LogTemp, Warning, TEXT("Dectivating Portals"));
+										Portal->ServerCanTeleport(false);
+									}, 15.f, false);
+
+							}
+						}
+					}
+				}, 30.f, true);
+		}
 		TopLane = NewObject<ALane>(this);
 		MidLane = NewObject<ALane>(this);
 		BotLane = NewObject<ALane>(this);

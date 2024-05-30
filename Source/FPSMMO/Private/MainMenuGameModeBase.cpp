@@ -25,7 +25,7 @@ void AMainMenuGameModeBase::AssignTeamToPlayer(APlayerController* NewPlayer)
                 GS->lastSlotFilled = 0;
                 FPSPlayerState->SetSlotLocation(GS->lastSlotFilled);
 				 FPSPlayerState->TeamId = AssignTeam(FPSPlayerState);
-
+                 FPSPlayerState->SetConnectionState(EConnection::Lobby);
                  GEngine->AddOnScreenDebugMessage(-1, 200, FColor::Red, FString::Printf(TEXT("PlayerState slot location line 29: %d"),GS->lastSlotFilled));
 
                  return;

@@ -8,6 +8,9 @@
 #include "Components/TextBlock.h"
 #include "pHUD.generated.h"
 
+class UImage;
+class UEditableTextBox;
+class UOverlay;
 class APlayerInfoState;
 class AFPSCharacter;
 /**
@@ -28,12 +31,6 @@ public:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "PlayerInfo")
 		float SP;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Health", meta = (BindWidget))
-	UProgressBar* Health;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Shield", meta = (BindWidget))
-		UProgressBar* Shield;
-
 	UPROPERTY(BlueprintReadOnly, Category = "InformationTextBlock", meta = (BindWidget))
 		UTextBlock* InformationTextBlock;
 
@@ -42,6 +39,39 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "RespawnTimerTextBlock", meta = (BindWidget))
 		UTextBlock* RespawnTimerTextBlock;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Recall", meta = (BindWidget))
+		UProgressBar* RecallProgressBar;
+
+		UPROPERTY(BlueprintReadOnly, Category = "FleshFlash", meta = (BindWidget))
+		UImage* FleshFlash;
+
+	UPROPERTY(meta = (BindWidget))
+	UOverlay*Menu;
+
+	UPROPERTY(meta = (BindWidget))
+	UEditableTextBox* SensTextBox;
+
+	UFUNCTION()
+	void TextCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void TextChanged(const FText &Text);
+
+	void SetMenuVisibility(ESlateVisibility VisibilityType);
+
+	void HideFleshFlash();
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* ShieldImage;
+
+	UPROPERTY(EditAnywhere,Category = "Shield Mat")
+	UMaterialInterface* ShieldMaterial;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* ShieldMaterialDynamic;
+
+	TMap<int, FLinearColor> ShieldColors;
 
 	UFUNCTION(BlueprintCallable, Category = "PlayerInfo")
 	void WidgetUpdateShield(float val);
@@ -74,9 +104,20 @@ public:
 	FTimerHandle GameTimeUpdateTimer;
 
 	void UpdateDeadPlayerTimer(float RespawnTimeLeft);
+
+	void UpdateShieldColor();
+
+	void UpdateRecallPB(float CurrentTime);
+
+	void ShowRecallBar();
+
+	void HideRecallBar();
+
+	void PerformFleshFlash();
 private:
 	APlayerState* PS;
 	FText text;
+	int LastPlayerLevel = -1;
 
 
 protected:

@@ -201,7 +201,9 @@ void UFPSGameInstance::CheckAndLoad()
         APlayerController* PlayerController = Iterator->Get();
         if (APlayerInfoState* PIS = Cast<APlayerInfoState>(PlayerController->PlayerState))
         {
-            PIS->ClientSetInputModeGameOnly(); 
+            PIS->ClientSetInputModeGameOnly();
+            //set the connection state of each player to connecting.
+            PIS->SetConnectionState(EConnection::Connecting);
         }
     }   
 

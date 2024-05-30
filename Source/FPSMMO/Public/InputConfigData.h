@@ -57,4 +57,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 		UInputAction* InputTactical;
+
+		UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+		UInputAction* InputTeleportBack;
 };

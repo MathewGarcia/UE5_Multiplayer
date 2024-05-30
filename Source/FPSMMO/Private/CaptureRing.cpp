@@ -18,6 +18,7 @@ ACaptureRing::ACaptureRing()
 	bReplicates = true;
 
 	FlagMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Flag Mesh"));
+	FlagMesh->SetRenderCustomDepth(true);
 	RootComponent = FlagMesh;
 
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Box Component"));
@@ -27,7 +28,7 @@ ACaptureRing::ACaptureRing()
 	BoxComponent->SetGenerateOverlapEvents(true);
 
 	TeamId = ETeam::TEAM_NONE;
-
+	
 	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &ACaptureRing::OnBoxBeginOverlap);
 	BoxComponent->OnComponentEndOverlap.AddDynamic(this, &ACaptureRing::OnBoxEndOverlap);
 }
@@ -43,6 +44,7 @@ void ACaptureRing::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor
 			ServerHandleOverlap(player);
 		}
 	}
+
 }
 
 
@@ -53,6 +55,7 @@ void ACaptureRing::ServerHandleOverlap_Implementation(AFPSCharacter* Player)
         APlayerInfoState* PlayerInfoState = Cast<APlayerInfoState>(Player->GetPlayerState());
         if ((this == GS->SpawnedCaptureRing) || PlayerInfoState && PlayerInfoState->TeamId != this->TeamId && GS->CanCapture(this))
         {
+				GS->NotifyPlayerCapture(this);
 				GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &ACaptureRing::IncrementRingPoints, TimerRate, true);
 				UE_LOG(LogTemp, Warning, TEXT("IN RING"));
 			
@@ -76,6 +79,9 @@ void ACaptureRing::OnBoxEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* 
 		GetWorld()->GetTimerManager().ClearTimer(RingTimerHandle);
 		UE_LOG(LogTemp, Warning, TEXT("TIMER CLEARED"));
 	}
+
+	FlagMesh->SetCustomDepthStencilValue(0);
+
 
 }
 

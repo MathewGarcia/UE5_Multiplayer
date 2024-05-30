@@ -6,6 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "FPSPlayerController.generated.h"
 
+class AWeapon;
+class ACaptureRing;
+enum class ETeam : uint8;
 class AMainHUD;
 class APlayerHUD;
 class UMarketDataAsset;
@@ -41,9 +44,55 @@ public:
 		void OnHUDReady(APlayerHUD* playerHUD);
 
 		void OnMainMenuReady(AMainHUD* MainMenuHUD);
+
+		void SetMenuVisibility(ESlateVisibility VisibilityType);
+
+	UFUNCTION(Client,Reliable)
+	void ClientUpdateShieldHUD(float ShieldValue);
+
+	UFUNCTION(Client, Reliable)
+	void ClientPerformFleshFlash();
+
+	UFUNCTION(Client, Reliable)
+	void ClientHideFleshFlash();
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateShieldColor();
+
+	UFUNCTION(Client, Reliable)
+	void UpdatePostProcess(float value);
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateRecallProgressBar(float CurrentTime);
+
+	UFUNCTION(Client, Reliable)
+	void ClientShowRecallBar();
+
+	UFUNCTION(Client,Reliable)
+	void ClientHideRecallBar();
+
+	UFUNCTION(Client, Reliable)
+	void ClientPlayCaptureSound();
+
+	UFUNCTION(Client, Reliable)
+	void ClientGlowTower(ACaptureRing*Tower,ETeam TowerTeam, ETeam PlayerTeam);
+
+	UFUNCTION(Exec,Category = "Commands")
+	void ChangeTeam(ETeam NewTeam);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerChangeTeam(ETeam NewTeam);
+
+	UFUNCTION(Client, Reliable)
+	void SetWeaponStencil(AWeapon*Weapon);
+
+	UFUNCTION(Client, Reliable)
+	void PlayCaptureRingSpawned();
+
 protected:
 
 	virtual void BeginPlay() override;
+
 
 private:
 	UPROPERTY()

@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Projectile.generated.h"
 
+class AWeapon;
 class AFPSCharacter;
 class UpHUD;
 class UProjectileMovementComponent;
@@ -40,21 +41,30 @@ public:
 	UPROPERTY(EditAnywhere, Category = "IsGrenade")
 	bool bIsGrenade = false;
 
+		UPROPERTY(EditAnywhere, Category = "Explosive")
+	bool isExplosive;
+
 
 	
 	UPROPERTY(VisibleAnywhere, Category = "Explosion")
 		URadialForceComponent* ExplosionForce;
 
 
+		UFUNCTION(NetMulticast, Reliable)
+		void MulticastSpawnBlood(FVector Location, AFPSCharacter* Victim);
+
+
 	FVector CalcImpactPoint(AStaticMeshActor* StaticMeshActor);
 
 	void SetFiringPlayer(AFPSCharacter* FP);
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	UFUNCTION(Category = "Projectile")
 		void OnProjectileImpact(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 	virtual void PostInitializeComponents() override;
 
 	virtual void Destroyed() override;
@@ -66,6 +76,7 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	void FireInDirection(const FVector& Direction);
+	void SetFiredWeapon(AWeapon* Weapon);
 
 private:
 	// Projectile movement component
@@ -85,9 +96,13 @@ private:
 
 	AFPSCharacter* FiringPlayer;
 
+	AWeapon* FiredWeapon;
+
 	FTimerHandle ExplosionTimerHandle;
 
 	float ExplosionTime = 3.0f;
 	// Function to destroy the projectile
 	void OnDestroyTimerExpired();
+
+
 };
